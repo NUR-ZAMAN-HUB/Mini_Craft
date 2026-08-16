@@ -6,9 +6,12 @@ int y = 0;
 void iDraw()
 {
 	iClear();
-	iFilledRectangle(x, y, 100, 100);
 	iSetColor(255, 255, 255);
+	iFilledRectangle(0, 0, 600, 400);
 
+
+	iSetColor(0,0,0);
+	iFilledCircle(300, 200, 100, 1000);
 }
 
 void iMouseMove(int mx, int my)
