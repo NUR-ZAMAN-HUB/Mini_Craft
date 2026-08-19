@@ -9,6 +9,7 @@ void iDraw()
 	iSetColor(255, 255, 255);
 	iFilledRectangle(0, 0, 600, 400);
 
+	iFilledCircle(300, 200, 100, 100);
 
 	iSetColor(0,0,0);
 	iFilledCircle(300, 200, 100, 1000);
