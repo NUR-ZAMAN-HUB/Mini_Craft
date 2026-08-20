@@ -13,6 +13,9 @@ struct Character{
 
     string name;
     string role;
+
+    string walk1, walk2, fightStand, deadPosion;
+
     float health;
     float maxHealth;
     float moveSpeed;
@@ -34,7 +37,11 @@ Character CH[3] = {
     // CH[0] - The Alchemist
     {
         "The Alchemist",      // name
-        "Witchcraft Expert",  // role
+        "Witchcraft Expert",  
+        "Images//Alchemist_walk1", // images
+        "Images//Alchemist_walk2", 
+        "Images//Alchemist_fightStand", 
+        "Images//Alchemist_deadPosion",
         100.0f,               // health
         100.0f,               // maxHealth
         200.0f,               // moveSpeed
@@ -50,6 +57,10 @@ Character CH[3] = {
     {
         "The Ranger",         // name
         "Shadow Dasher",      // role
+        "Images//Ranger_walk1",  // images
+        "Images//Ranger_walk2", 
+        "Images//Ranger_fightStand", 
+        "Images//Ranger_deadPosion",
         70.0f,                // health
         70.0f,                // maxHealth
         320.0f,               // moveSpeed
@@ -65,6 +76,10 @@ Character CH[3] = {
     {
         "The Guardian",       // name
         "Light Protector",    // role
+        "Images//Guardian_walk1",  // images
+        "Images//Guardian_walk2", 
+        "Images//Guardian_fightStand", 
+        "Images//Guardian_deadPosion",
         180.0f,               // health
         180.0f,               // maxHealth
         130.0f,               // moveSpeed

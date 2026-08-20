@@ -1,7 +1,7 @@
 #include "iGraphics.h"
 
-int x = 0;
-int y = 0;
+int x = 300;
+int y = 330;
 
 void iDraw()
 {
@@ -11,7 +11,7 @@ void iDraw()
 
 
 	iSetColor(0,0,0);
-	iFilledCircle(300, 200, 100, 1000);
+	iFilledCircle(x, y, 100, 1000);
 }
 
 void iMouseMove(int mx, int my)
