@@ -6,8 +6,8 @@
 using namespace std;
 
 
-const int PLAYER_HIGHT;
-const int PLAYER_WIDTH;
+const int PLAYER_HIGHT = 0;
+const int PLAYER_WIDTH = 0;
 
 struct Character{
 
@@ -27,13 +27,14 @@ struct Character{
     float energyCost;
     float shieldDuration;
     float shieldStrength;
-}CH[3];
+};
 
 // wrinting f is not necessary, without it the float is 64 bit
 // but we write is fot the compiler to treat it as 32bit
 
 // Character Array Declaration and Initialization
-Character CH[3] = {
+// inline helps us to make it like a shared array
+inline Character CH[3] = {
     // CH[0] - The Alchemist
     {
         "The Alchemist",      // name
