@@ -1,17 +1,56 @@
 #include "iGraphics.h"
+#include "Menu.h"
+#include <cstdlib> 
+#include "Player.hpp"
+
+GameState currentState = GameState::MENU;
+
+Button startBtn = { 326, 235, 466, 275, "START" };
+Button levelBtn = { 326, 185, 466, 225, "LEVEL" };
+Button exitBtn = { 326, 135, 466, 175, "EXIT" };
 
 int x = 300;
 int y = 330;
 
+int backgroundImg1;
+
+bool IsInsideButton(const Button& b, int mx, int my)
+{
+	return mx >= b.x1 && mx <= b.x2 && my >= b.y1 && my <= b.y2;
+}
+
+void DrawButton(const Button& b)
+{
+	iSetColor(70, 130, 180);
+	iFilledRectangle(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+
+	iSetColor(255, 255, 255);
+	iRectangle(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+	iText(b.x1 + 45, (b.y1 + b.y2) / 2 - 5, const_cast<char*>(b.label), GLUT_BITMAP_HELVETICA_18);
+}
+
+void DrawMenu()
+{
+	DrawButton(startBtn);
+	DrawButton(levelBtn);
+	DrawButton(exitBtn);
+}
+
 void iDraw()
 {
 	iClear();
-	iSetColor(255, 255, 255);
-	iFilledRectangle(0, 0, 600, 400);
+	iShowImage(0, 0, 800, 600, backgroundImg1);
 
-
-	iSetColor(0,0,0);
-	iFilledCircle(x, y, 100, 1000);
+	switch (currentState)
+	{
+	case GameState::MENU:
+		DrawMenu();
+		break;
+	case GameState::LEVEL_SELECT:
+		break;
+	case GameState::PLAYING:
+		break;
+	}
 }
 
 void iMouseMove(int mx, int my)
@@ -27,6 +66,22 @@ void iPassiveMouseMove(int mx, int my)
 void iMouse(int button, int state, int mx, int my)
 {
 	
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && currentState == GameState::MENU)
+	{
+		if (IsInsideButton(startBtn, mx, my))
+		{
+			currentState = GameState::PLAYING;
+		}
+		else if (IsInsideButton(levelBtn, mx, my))
+		{
+			currentState = GameState::LEVEL_SELECT;
+		}
+		else if (IsInsideButton(exitBtn, mx, my))
+		{
+			exit(0);
+		}
+	}
+
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
 	{
 
@@ -64,26 +119,15 @@ void fixedUpdate()
 	}
 
 	if (isKeyPressed(' ')) {
-		// Playing the audio once
-		mciSendString("play ggsong from 0", NULL, 0, NULL);
+		
 	}
 }
 
 
 int main()
 {
-	// Opening/Loading the audio files
-	mciSendString("open \"Audios//background.mp3\" alias bgsong", NULL, 0, NULL);
-	mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0, NULL);
-
-	// Playing the background audio on repeat
-	mciSendString("play bgsong repeat", NULL, 0, NULL);
-
-	// If the use of an audio is finished, close it to free memory
-	// mciSendString("close bgsong", NULL, 0, NULL);
-	// mciSendString("close ggsong", NULL, 0, NULL);
-
-	iInitialize(600, 400, "Project Title");
+	iInitialize(800, 600, "Project Title");
+	backgroundImg1 = iLoadImage("Images//Game_background1.jpg");
 	iStart();
 	return 0;
 }

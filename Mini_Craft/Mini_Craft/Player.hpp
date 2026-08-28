@@ -33,8 +33,8 @@ struct Character{
 // but we write is fot the compiler to treat it as 32bit
 
 // Character Array Declaration and Initialization
-// inline helps us to make it like a shared array
-inline Character CH[3] = {
+// inline helps us to make it like a shared array 
+Character CH[3] = {
     // CH[0] - The Alchemist
     {
         "The Alchemist",      // name
