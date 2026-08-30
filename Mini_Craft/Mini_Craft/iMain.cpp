@@ -1,8 +1,5 @@
-
-
 #include "iGraphics.h"
-#include <cmath>
-#include <cstdio>
+
 // Game States
 enum GameState {
 	STATE_GAMEPLAY,
@@ -24,7 +21,7 @@ int heroHeight = 85;
 
 // Hero Direction & Animation States
 bool isMoving = false;
-bool facingRight = true; // Tracks direction (true = Right, false = Left)
+bool facingRight = true; // Tracks direction (true = R ; false = L)
 int walkFrameIndex = 0;
 int frameDelayCounter = 0;
 
@@ -67,9 +64,11 @@ bool spacePressedLastFrame = false;
 
 // Cutscene Dialogue Sequence
 int currentDialogueIndex = 0;
-const int TOTAL_DIALOGUES = 6;
+const int TOTAL_DIALOGUES = 8;
 
 const char* dialogueSpeakers[] = {
+	"Witch:",
+	"Hero:",
 	"Witch:",
 	"Hero:",
 	"Witch:",
@@ -79,12 +78,14 @@ const char* dialogueSpeakers[] = {
 };
 
 const char* dialogues[] = {
-	"Thank you, brave hero, for saving me from that curse!",
+	"Thank you, dear, for saving me from that curse!",
 	"Are you alright? What kind of dark power held you?",
-	"Dark energies linger ahead... Take this spellbook.",
-	"A spellbook? Thank you! I will use it to power up.",
-	"I am also granting you helper goblins to assist you!",
-	"Got it. Goblins and spellbook—time to stop them!"
+	"Dark energies linger ahead... Take this Spell Book, it will guide you.",
+	"A Spell Book? I'm so grateful for your guidance! I will use it to power up.",
+	"I am also granting you Goblins to assist you!",
+	"Goblins to help me? Thank you so much! With them, we can stop the dark forces!",
+	"Step through the nearby portal to reach my home safely.",
+	"Understood! Let's go there right away!."
 };
 
 // Distance calculations
@@ -118,17 +119,72 @@ bool checkProximityToPortal()
 // Render dynamic objective inside the Task UI Box
 void renderTaskBox()
 {
-	int taskTextY = 70;
+
 
 	if (!isWitchRescued)
 	{
-		iSetColor(180, 40, 40);
-		iText(340, taskTextY, "SAVE THE WITCH", GLUT_BITMAP_HELVETICA_18);
+		iSetColor(50, 30, 20);
+		iText(225, 70, "SAVE THE WITCH", GLUT_BITMAP_HELVETICA_12);
 	}
 	else
 	{
 		iSetColor(50, 30, 20);
-		iText(225, taskTextY, "ENTER THE PORTAL TO PROCEED TO NEXT MAP", GLUT_BITMAP_HELVETICA_12);
+		iText(225, 70, "ENTER THE PORTAL TO PROCEED TO NEXT MAP", GLUT_BITMAP_HELVETICA_12);
+	}
+}
+
+// Word wrapper helper for GLUT_BITMAP_HELVETICA_12
+void iTextWrapped(int x, int y, const char* text, int maxWidth, int lineSpacing)
+{
+	char buffer[256];
+	char currentLine[256] = "";
+	char word[64];
+
+	int textLen = strlen(text);
+	int bufIdx = 0;
+	int currentY = y;
+
+	for (int i = 0; i <= textLen; i++)
+	{
+		if (text[i] == ' ' || text[i] == '\0')
+		{
+			word[bufIdx] = '\0';
+			bufIdx = 0;
+
+			char testLine[256];
+			if (strlen(currentLine) == 0) {
+				strcpy_s(testLine, word);
+			}
+			else {
+				sprintf_s(testLine, "%s %s", currentLine, word);
+			}
+
+			// Estimate width (~7.5 pixels per character in Helvetica 12)
+			int estimatedWidth = strlen(testLine) * 7.5;
+
+			if (estimatedWidth > maxWidth && strlen(currentLine) > 0)
+			{
+				iText(x, currentY, currentLine, GLUT_BITMAP_HELVETICA_12);
+				currentY -= lineSpacing;
+				strcpy_s(currentLine, word);
+			}
+			else
+			{
+				strcpy_s(currentLine, testLine);
+			}
+		}
+		else
+		{
+			if (bufIdx < 63)
+			{
+				word[bufIdx++] = text[i];
+			}
+		}
+	}
+
+	if (strlen(currentLine) > 0)
+	{
+		iText(x, currentY, currentLine, GLUT_BITMAP_HELVETICA_12);
 	}
 }
 
@@ -178,7 +234,7 @@ void renderCutscene()
 		iSetColor(255, 255, 255);
 		iText(boxX + 50, itemY + 15, "[ Item: Ancient Spellbook ]", GLUT_BITMAP_HELVETICA_12);
 	}
-	else if (currentDialogueIndex == 4)
+	else if (currentDialogueIndex == 4 || currentDialogueIndex == 5)
 	{
 		iSetColor(15, 15, 25);
 		iFilledRectangle(boxX, itemY, 330, 45);
@@ -193,10 +249,14 @@ void renderCutscene()
 		iText(boxX + 50, itemY + 15, "[ Unlocked: Crafting Goblins ]", GLUT_BITMAP_HELVETICA_12);
 	}
 
+	// Render Speaker Name
 	iSetColor(255, 255, 255);
-	iText(boxX + 20, boxY + 140, (char*)dialogueSpeakers[currentDialogueIndex], GLUT_BITMAP_HELVETICA_18);
-	iText(boxX + 20, boxY + 90, (char*)dialogues[currentDialogueIndex], GLUT_BITMAP_HELVETICA_12);
+	iText(boxX + 20, boxY + 145, (char*)dialogueSpeakers[currentDialogueIndex], GLUT_BITMAP_HELVETICA_18);
 
+	// Wrapped Dialogue Text (360px max width inside 400px box)
+	iTextWrapped(boxX + 20, boxY + 110, dialogues[currentDialogueIndex], 360, 20);
+
+	// Prompt to advance
 	iSetColor(180, 180, 180);
 	iText(boxX + 180, boxY + 15, "Press [SPACE] to continue...", GLUT_BITMAP_HELVETICA_12);
 }
@@ -282,7 +342,7 @@ void iDraw()
 			iSetColor(255, 255, 255);
 			iRectangle(portalX - 40, portalY + 140, 180, 35);
 
-			iText(portalX - 30, portalY + 152, "PRESS ENTER TO ENTER", GLUT_BITMAP_HELVETICA_12);
+			iText(portalX - 30, portalY + 152, "PRESS 'ENTER' TO GET IN", GLUT_BITMAP_HELVETICA_12);
 		}
 	}
 	else if (currentState == STATE_CUTSCENE)
@@ -406,8 +466,8 @@ int main()
 	iInitialize(screenWidth, screenHeight, "Save the Witch");
 
 	// Hero PNGs - Stand
-	heroStandRightID = iLoadImage("images/alchemist_stand.png");
-	heroStandLeftID = iLoadImage("images/alchemist_stand_left.png");
+	heroStandRightID = iLoadImage("images/alchemist_standR.png");
+	heroStandLeftID = iLoadImage("images/alchemist_standL.png");
 
 	// Hero PNGs - Right Walk Animation
 	heroWalkRightIDs[0] = iLoadImage("images/alchemist_walkR1.png");
