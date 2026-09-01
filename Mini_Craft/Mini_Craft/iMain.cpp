@@ -1,6 +1,6 @@
 #include "iGraphics.h"
 
-// Game States
+//Game States
 enum GameState {
 	STATE_GAMEPLAY,
 	STATE_CUTSCENE,
@@ -9,49 +9,49 @@ enum GameState {
 
 GameState currentState = STATE_GAMEPLAY;
 
-// Screen Dimensions (800 x 600)
+//screen dimension
 int screenWidth = 800;
 int screenHeight = 600;
 
-// Hero Position & Size
+//hero coordinates
 int heroX = 160;
 int heroY = 350;
 int heroWidth = 65;
 int heroHeight = 85;
 
-// Hero Direction & Animation States
+// Direction & Animation state
 bool isMoving = false;
-bool facingRight = true; // Tracks direction (true = R ; false = L)
+bool facingRight = true; // true = facing Right, false = facing Left
 int walkFrameIndex = 0;
 int frameDelayCounter = 0;
 
-// PNG Sprite Image Handles
+//IDs
 int heroStandRightID = -1;
 int heroStandLeftID = -1;
 int heroWalkRightIDs[4] = { -1, -1, -1, -1 };
 int heroWalkLeftIDs[4] = { -1, -1, -1, -1 };
-
-int witchUnconsciousID = -1;
-int witchStandingID = -1;
 
 int heroPortraitID = -1;
 int witchPortraitID = -1;
 int spellBookID = -1;
 int goblinHelperID = -1;
 
-// Witch Screen Position & Dimensions
+//witch coordinates
+int witchUnconsciousID = -1;
+int witchStandingID = -1;
+
 int witchX = 280;
 int witchY = 295;
 int witchWidth = 110;
 int witchHeight = 110;
 
-// Proximity Test State
+//Witch proximity
 bool isNearWitch = false;
 bool isWitchRescued = false;
 float currentDistance = 0.0f;
 float proximityThreshold = 100.0f;
 
-// Portal Position & Proximity
+//Portal proximity
 int portalX = 450;
 int portalY = 320;
 int portalWidth = 100;
@@ -59,10 +59,10 @@ int portalHeight = 130;
 bool isNearPortal = false;
 float portalProximityThreshold = 140.0f;
 
-// Input Debounce
+//input
 bool spacePressedLastFrame = false;
 
-// Cutscene Dialogue Sequence
+//Cutscene Dialogue
 int currentDialogueIndex = 0;
 const int TOTAL_DIALOGUES = 8;
 
@@ -78,7 +78,7 @@ const char* dialogueSpeakers[] = {
 };
 
 const char* dialogues[] = {
-	"Thank you, dear, for saving me from that curse!",
+	"Thank you, dear for saving me from that curse!",
 	"Are you alright? What kind of dark power held you?",
 	"Dark energies linger ahead... Take this Spell Book, it will guide you.",
 	"A Spell Book? I'm so grateful for your guidance! I will use it to power up.",
@@ -88,54 +88,52 @@ const char* dialogues[] = {
 	"Understood! Let's go there right away!."
 };
 
-// Distance calculations
-bool checkProximityToWitch()
-{
-	float heroCenterX = heroX + (heroWidth / 2.0f);
-	float heroCenterY = heroY + (heroHeight / 2.0f);
-	float witchCenterX = witchX + (witchWidth / 2.0f);
-	float witchCenterY = witchY + (witchHeight / 2.0f);
+//Proximity calculation
+// Distance between the centers of two axis-aligned boxes.
+// Both proximity checks used to repeat this exact math -- pulled out
+// once so there's a single place to fix if the formula ever changes.
+float getCenterDistance(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2){
+	float cx1 = x1 + (w1 / 2.0f);
+	float cy1 = y1 + (h1 / 2.0f);
+	float cx2 = x2 + (w2 / 2.0f);
+	float cy2 = y2 + (h2 / 2.0f);
 
-	float dx = heroCenterX - witchCenterX;
-	float dy = heroCenterY - witchCenterY;
+	float dx = cx1 - cx2;
+	float dy = cy1 - cy2;
 
-	currentDistance = (float)sqrt(dx * dx + dy * dy);
+	return (float)sqrt(dx * dx + dy * dy);
+}
+
+bool checkProximityToWitch(){
+	currentDistance = getCenterDistance(heroX, heroY, heroWidth, heroHeight, witchX, witchY, witchWidth, witchHeight);
+
 	return currentDistance <= proximityThreshold;
 }
 
-bool checkProximityToPortal()
-{
-	float heroCenterX = heroX + (heroWidth / 2.0f);
-	float heroCenterY = heroY + (heroHeight / 2.0f);
-	float portalCenterX = portalX + (portalWidth / 2.0f);
-	float portalCenterY = portalY + (portalHeight / 2.0f);
+bool checkProximityToPortal(){
+	float distance = getCenterDistance(heroX, heroY, heroWidth, heroHeight, portalX, portalY, portalWidth, portalHeight);
 
-	float dx = heroCenterX - portalCenterX;
-	float dy = heroCenterY - portalCenterY;
-
-	return (float)sqrt(dx * dx + dy * dy) <= portalProximityThreshold;
+	return distance <= portalProximityThreshold;
 }
 
 // Render dynamic objective inside the Task UI Box
-void renderTaskBox()
-{
+void renderTaskBox(){
+	iSetColor(50, 30, 20);
 
+	if (!isWitchRescued){
 
-	if (!isWitchRescued)
-	{
-		iSetColor(50, 30, 20);
 		iText(225, 70, "SAVE THE WITCH", GLUT_BITMAP_HELVETICA_12);
 	}
-	else
-	{
-		iSetColor(50, 30, 20);
+
+	else{
+
 		iText(225, 70, "ENTER THE PORTAL TO PROCEED TO NEXT MAP", GLUT_BITMAP_HELVETICA_12);
 	}
 }
 
 // Word wrapper helper for GLUT_BITMAP_HELVETICA_12
-void iTextWrapped(int x, int y, const char* text, int maxWidth, int lineSpacing)
-{
+void iTextWrapped(int x, int y, const char* text, int maxWidth, int lineSpacing){
+
 	char buffer[256];
 	char currentLine[256] = "";
 	char word[64];
@@ -144,10 +142,10 @@ void iTextWrapped(int x, int y, const char* text, int maxWidth, int lineSpacing)
 	int bufIdx = 0;
 	int currentY = y;
 
-	for (int i = 0; i <= textLen; i++)
-	{
-		if (text[i] == ' ' || text[i] == '\0')
-		{
+	for (int i = 0; i <= textLen; i++){
+
+		if (text[i] == ' ' || text[i] == '\0'){
+
 			word[bufIdx] = '\0';
 			bufIdx = 0;
 
@@ -162,103 +160,115 @@ void iTextWrapped(int x, int y, const char* text, int maxWidth, int lineSpacing)
 			// Estimate width (~7.5 pixels per character in Helvetica 12)
 			int estimatedWidth = strlen(testLine) * 7.5;
 
-			if (estimatedWidth > maxWidth && strlen(currentLine) > 0)
-			{
+			if (estimatedWidth > maxWidth && strlen(currentLine) > 0){
+
 				iText(x, currentY, currentLine, GLUT_BITMAP_HELVETICA_12);
 				currentY -= lineSpacing;
 				strcpy_s(currentLine, word);
 			}
-			else
-			{
+			else{
+
 				strcpy_s(currentLine, testLine);
 			}
 		}
-		else
-		{
-			if (bufIdx < 63)
-			{
+		else{
+			if (bufIdx < 63){
+
+
 				word[bufIdx++] = text[i];
 			}
 		}
 	}
 
-	if (strlen(currentLine) > 0)
-	{
+	if (strlen(currentLine) > 0){
 		iText(x, currentY, currentLine, GLUT_BITMAP_HELVETICA_12);
 	}
 }
 
-void renderCutscene()
-{
+void renderCutscene(){
 	iShowBMP(0, 0, "images/saving_placeblur.bmp");
 
-	if (heroPortraitID > 0)
-	{
+	if (heroPortraitID > 0){
 		iShowImage(610, 100, 160, 260, heroPortraitID);
 	}
 
-	if (witchPortraitID > 0)
-	{
+	if (witchPortraitID > 0){
 		iShowImage(30, 100, 160, 260, witchPortraitID);
 	}
 
 	int boxX = 200;
 	int boxY = 120;
-	int boxWidth = 400;
+	int boxWidth = 390;
 	int boxHeight = 180;
 
+	//Dialogue Box Color
 	iSetColor(15, 15, 25);
 	iFilledRectangle(boxX, boxY, boxWidth, boxHeight);
 
 	if (currentDialogueIndex % 2 == 0) {
-		iSetColor(255, 215, 0);
+		iSetColor(255, 215, 0);   //Witch: gold outline
 	}
 	else {
-		iSetColor(70, 130, 180);
+		iSetColor(70, 130, 180);  //Hero: Blue outline
 	}
 	iRectangle(boxX, boxY, boxWidth, boxHeight);
-
-	int itemY = boxY + boxHeight + 10;
-
-	if (currentDialogueIndex == 2 || currentDialogueIndex == 3)
-	{
-		iSetColor(15, 15, 25);
-		iFilledRectangle(boxX, itemY, 320, 45);
-		iSetColor(255, 215, 0);
-		iRectangle(boxX, itemY, 320, 45);
-
-		if (spellBookID > 0)
-		{
-			iShowImage(boxX + 6, itemY + 4, 36, 36, spellBookID);
-		}
-		iSetColor(255, 255, 255);
-		iText(boxX + 50, itemY + 15, "[ Item: Ancient Spellbook ]", GLUT_BITMAP_HELVETICA_12);
-	}
-	else if (currentDialogueIndex == 4 || currentDialogueIndex == 5)
-	{
-		iSetColor(15, 15, 25);
-		iFilledRectangle(boxX, itemY, 330, 45);
-		iSetColor(255, 215, 0);
-		iRectangle(boxX, itemY, 330, 45);
-
-		if (goblinHelperID > 0)
-		{
-			iShowImage(boxX + 6, itemY + 4, 36, 36, goblinHelperID);
-		}
-		iSetColor(255, 255, 255);
-		iText(boxX + 50, itemY + 15, "[ Unlocked: Crafting Goblins ]", GLUT_BITMAP_HELVETICA_12);
-	}
 
 	// Render Speaker Name
 	iSetColor(255, 255, 255);
 	iText(boxX + 20, boxY + 145, (char*)dialogueSpeakers[currentDialogueIndex], GLUT_BITMAP_HELVETICA_18);
 
-	// Wrapped Dialogue Text (360px max width inside 400px box)
-	iTextWrapped(boxX + 20, boxY + 110, dialogues[currentDialogueIndex], 360, 20);
+	// Wrapped Dialogue Text
+	iTextWrapped(boxX + 20, boxY + 110, dialogues[currentDialogueIndex], 350, 20);
 
-	// Prompt to advance
+	// Prompt to advance dialogue
 	iSetColor(180, 180, 180);
-	iText(boxX + 180, boxY + 15, "Press [SPACE] to continue...", GLUT_BITMAP_HELVETICA_12);
+	iText(boxX + 170, boxY + 15, "Press [SPACE] to continue...", GLUT_BITMAP_HELVETICA_12);
+
+	// Item unlocked msg
+	int imgSize = 100;
+
+	// Position image directly above the main box
+	int itemX = boxX + 30;
+	int itemY = boxY + boxHeight + 15;
+
+	// Position text badge right next to the image
+	int tagX = itemX + imgSize + 15;
+	int tagY = itemY + (imgSize / 2) - 20;
+	int tagW = 180;
+	int tagH = 40;
+
+	if (currentDialogueIndex == 2 || currentDialogueIndex == 3){
+		// Render Spell Book Image above box
+		if (spellBookID > 0){
+			iShowImage(itemX, itemY, 65, 70, spellBookID);
+		}
+
+		// Text Tag Beside Book
+		iSetColor(15, 15, 25);
+		iFilledRectangle(tagX, tagY, tagW, tagH);
+		iSetColor(255, 255, 255);
+		iRectangle(tagX, tagY, tagW, tagH); //white outline
+
+		iSetColor(255, 255, 255);
+		iText(tagX + 15, tagY + 14, "Spell Book Unlocked", GLUT_BITMAP_HELVETICA_12);
+	}
+	else if (currentDialogueIndex == 4 || currentDialogueIndex == 5){
+		// Render Goblin Image above box
+		if (goblinHelperID > 0)
+		{
+			iShowImage(itemX, itemY, imgSize, imgSize, goblinHelperID);
+		}
+
+		// Text Tag Beside Goblin
+		iSetColor(15, 15, 25);
+		iFilledRectangle(tagX, tagY, tagW, tagH);
+		iSetColor(255, 255, 255);
+		iRectangle(tagX, tagY, tagW, tagH); //white outline
+
+
+		iSetColor(255, 255, 255);
+		iText(tagX + 15, tagY + 14, "Goblin Unlocked", GLUT_BITMAP_HELVETICA_12);
+	}
 }
 
 void renderLoadingScreen()
@@ -270,12 +280,37 @@ void renderLoadingScreen()
 	iText(screenWidth / 2 - 130, screenHeight / 2, "NEXT SCENE LOADING...", GLUT_BITMAP_TIMES_ROMAN_24);
 }
 
-void iDraw()
-{
+// Hero Sprite Select
+// Picks the sprite ID that should be drawn this frame based on facing
+// direction and whether the hero is walking. Replaces the nested
+// if/else block that used to sit directly inside iDraw().
+
+int getCurrentHeroSpriteID(){
+	if (facingRight){
+
+		if (isMoving && heroWalkRightIDs[walkFrameIndex] > 0)
+			return heroWalkRightIDs[walkFrameIndex];
+
+		return heroStandRightID;
+	}
+	else{
+
+		if (isMoving && heroWalkLeftIDs[walkFrameIndex] > 0)
+			return heroWalkLeftIDs[walkFrameIndex];
+
+		if (heroStandLeftID > 0)
+			return heroStandLeftID;
+
+		return heroStandRightID; // fallback if a left-facing stand sprite is missing
+	}
+}
+
+void iDraw(){
+
 	iClear();
 
-	if (currentState == STATE_GAMEPLAY)
-	{
+	if (currentState == STATE_GAMEPLAY){
+
 		// Gameplay Background
 		iShowBMP(0, 0, "images/saving_place.bmp");
 
@@ -283,49 +318,28 @@ void iDraw()
 		renderTaskBox();
 
 		// Witch Rendering
-		if (isWitchRescued)
-		{
+		if (isWitchRescued){
+
 			if (witchStandingID > 0)
 				iShowImage(witchX, witchY, witchWidth, witchHeight, witchStandingID);
 		}
-		else
-		{
+		else{
+
 			if (witchUnconsciousID > 0)
 				iShowImage(witchX, witchY, witchWidth, witchHeight, witchUnconsciousID);
 		}
 
-		// Safe Hero Rendering (Guards against invalid handles)
-		if (facingRight)
-		{
-			if (isMoving && heroWalkRightIDs[walkFrameIndex] > 0)
-			{
-				iShowImage(heroX, heroY, heroWidth, heroHeight, heroWalkRightIDs[walkFrameIndex]);
-			}
-			else if (heroStandRightID > 0)
-			{
-				iShowImage(heroX, heroY, heroWidth, heroHeight, heroStandRightID);
-			}
-		}
-		else // Facing Left
-		{
-			if (isMoving && heroWalkLeftIDs[walkFrameIndex] > 0)
-			{
-				iShowImage(heroX, heroY, heroWidth, heroHeight, heroWalkLeftIDs[walkFrameIndex]);
-			}
-			else if (heroStandLeftID > 0)
-			{
-				iShowImage(heroX, heroY, heroWidth, heroHeight, heroStandLeftID);
-			}
-			else if (heroStandRightID > 0) // Fallback to right stand if left stand missing
-			{
-				iShowImage(heroX, heroY, heroWidth, heroHeight, heroStandRightID);
-			}
+		// Hero Rendering
+		int heroSpriteID = getCurrentHeroSpriteID();
+		if (heroSpriteID > 0){
+
+			iShowImage(heroX, heroY, heroWidth, heroHeight, heroSpriteID);
 		}
 
 		// Proximity Prompts
-		if (isNearWitch && !isWitchRescued)
-		{
-			iSetColor(255, 105, 180);
+		if (isNearWitch && !isWitchRescued){
+
+			iSetColor(15, 15, 25);
 			iFilledRectangle(witchX - 30, witchY + 120, 175, 35);
 
 			iSetColor(255, 255, 255);
@@ -334,9 +348,9 @@ void iDraw()
 			iText(witchX - 25, witchY + 132, "PRESS 'X' TO SAVE WITCH", GLUT_BITMAP_HELVETICA_12);
 		}
 
-		if (isNearPortal && isWitchRescued)
-		{
-			iSetColor(128, 0, 128);
+		if (isNearPortal && isWitchRescued){
+
+			iSetColor(15, 15, 25);
 			iFilledRectangle(portalX - 40, portalY + 140, 180, 35);
 
 			iSetColor(255, 255, 255);
@@ -345,12 +359,12 @@ void iDraw()
 			iText(portalX - 30, portalY + 152, "PRESS 'ENTER' TO GET IN", GLUT_BITMAP_HELVETICA_12);
 		}
 	}
-	else if (currentState == STATE_CUTSCENE)
-	{
+	else if (currentState == STATE_CUTSCENE){
+
 		renderCutscene();
 	}
-	else if (currentState == STATE_LOADING)
-	{
+	else if (currentState == STATE_LOADING){
+
 		renderLoadingScreen();
 	}
 }
@@ -359,52 +373,50 @@ void iMouseMove(int mx, int my) {}
 void iPassiveMouseMove(int mx, int my) {}
 void iMouse(int button, int state, int mx, int my) {}
 
-void iKeyboard(unsigned char key)
-{
+void iKeyboard(unsigned char key){
+
 	if (currentState == STATE_GAMEPLAY && (key == '\r' || key == '\n') && isNearPortal && isWitchRescued)
 	{
 		currentState = STATE_LOADING;
 	}
 }
 
-void fixedUpdate()
-{
-	if (currentState == STATE_CUTSCENE)
-	{
-		if (isKeyPressed(' '))
-		{
-			if (!spacePressedLastFrame)
-			{
+void fixedUpdate(){
+	if (currentState == STATE_CUTSCENE){
+
+		if (isKeyPressed(' ')){
+
+			if (!spacePressedLastFrame){
+
 				currentDialogueIndex++;
-				if (currentDialogueIndex >= TOTAL_DIALOGUES)
-				{
+
+				if (currentDialogueIndex >= TOTAL_DIALOGUES){
 					currentState = STATE_GAMEPLAY;
 					currentDialogueIndex = 0;
 				}
 				spacePressedLastFrame = true;
 			}
 		}
-		else
-		{
+		else{
+
 			spacePressedLastFrame = false;
 		}
 	}
-	else if (currentState == STATE_GAMEPLAY)
-	{
+	else if (currentState == STATE_GAMEPLAY){
+
 		isMoving = false;
 		int moveSpeed = 2;
 
 		isNearWitch = checkProximityToWitch();
 		isNearPortal = checkProximityToPortal();
 
-		if ((isKeyPressed('\r') || isKeyPressed('\n')) && isNearPortal && isWitchRescued)
-		{
+		if ((isKeyPressed('\r') || isKeyPressed('\n')) && isNearPortal && isWitchRescued){
 			currentState = STATE_LOADING;
 			return;
 		}
 
-		if ((isKeyPressed('x') || isKeyPressed('X')) && isNearWitch && !isWitchRescued)
-		{
+		if ((isKeyPressed('x') || isKeyPressed('X')) && isNearWitch && !isWitchRescued){
+
 			isWitchRescued = true;
 			currentState = STATE_CUTSCENE;
 		}
@@ -440,29 +452,31 @@ void fixedUpdate()
 		// Screen Boundaries
 		if (heroX < 0) heroX = 0;
 		if (heroY < 0) heroY = 0;
-		if (heroX > screenWidth - heroWidth) heroX = screenWidth - heroWidth;
-		if (heroY > screenHeight - heroHeight) heroY = screenHeight - heroHeight;
+		if (heroX > screenWidth - heroWidth)
+			heroX = screenWidth - heroWidth;
+		if (heroY > screenHeight - heroHeight)
+			heroY = screenHeight - heroHeight;
 
 		// Frame animation counter
-		if (isMoving)
-		{
+		if (isMoving){
+
 			frameDelayCounter++;
-			if (frameDelayCounter >= 8)
-			{
+			if (frameDelayCounter >= 8){
+
 				walkFrameIndex = (walkFrameIndex + 1) % 4;
 				frameDelayCounter = 0;
 			}
 		}
-		else
-		{
+		else{
+
 			walkFrameIndex = 0;
 			frameDelayCounter = 0;
 		}
 	}
 }
 
-int main()
-{
+int main(){
+
 	iInitialize(screenWidth, screenHeight, "Save the Witch");
 
 	// Hero PNGs - Stand
@@ -489,7 +503,7 @@ int main()
 	heroPortraitID = iLoadImage("images/alchemist_portrait.png");
 	witchPortraitID = iLoadImage("images/right_looking_witch.png");
 	spellBookID = iLoadImage("images/witch_book.png");
-	goblinHelperID = iLoadImage("images/ranger_walk1.png");
+	goblinHelperID = iLoadImage("images/goblin.png");
 
 	// Timer loop
 	iSetTimer(16, fixedUpdate);
