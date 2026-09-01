@@ -2,9 +2,9 @@
 
 //Game States
 enum GameState {
-	STATE_GAMEPLAY,
-	STATE_CUTSCENE,
-	STATE_LOADING
+	STATE_GAMEPLAY, //player movement
+	STATE_CUTSCENE, //dialogue between hero and witch
+	STATE_LOADING //next map load
 };
 
 GameState currentState = STATE_GAMEPLAY;
@@ -16,14 +16,14 @@ int screenHeight = 600;
 //hero coordinates
 int heroX = 160;
 int heroY = 350;
-int heroWidth = 65;
-int heroHeight = 85;
+int heroWidth = 75;
+int heroHeight = 95;
 
 // Direction & Animation state
 bool isMoving = false;
 bool facingRight = true; // true = facing Right, false = facing Left
-int walkFrameIndex = 0;
-int frameDelayCounter = 0;
+int walkFrameIndex = 0; //walking frame 
+int frameDelayCounter = 0; //speed
 
 //IDs
 int heroStandRightID = -1;
@@ -36,10 +36,11 @@ int witchPortraitID = -1;
 int spellBookID = -1;
 int goblinHelperID = -1;
 
-//witch coordinates
+
 int witchUnconsciousID = -1;
 int witchStandingID = -1;
 
+//witch coordinates
 int witchX = 280;
 int witchY = 295;
 int witchWidth = 110;
@@ -64,13 +65,15 @@ bool spacePressedLastFrame = false;
 
 //Cutscene Dialogue
 int currentDialogueIndex = 0;
-const int TOTAL_DIALOGUES = 8;
+const int TOTAL_DIALOGUES = 10;
 
 const char* dialogueSpeakers[] = {
 	"Witch:",
 	"Hero:",
 	"Witch:",
+	"Witch:",
 	"Hero:",
+	"Witch:",
 	"Witch:",
 	"Hero:",
 	"Witch:",
@@ -78,14 +81,16 @@ const char* dialogueSpeakers[] = {
 };
 
 const char* dialogues[] = {
-	"Thank you, dear for saving me from that curse!",
-	"Are you alright? What kind of dark power held you?",
-	"Dark energies linger ahead... Take this Spell Book, it will guide you.",
-	"A Spell Book? I'm so grateful for your guidance! I will use it to power up.",
-	"I am also granting you Goblins to assist you!",
-	"Goblins to help me? Thank you so much! With them, we can stop the dark forces!",
-	"Step through the nearby portal to reach my home safely.",
-	"Understood! Let's go there right away!."
+	"...It's over. The chains, the whispers in my skull - gone. You have no idea what you just pulled me out of.",
+	"What was that? I've never seen a curse hold someone like that.",
+	"Old magic. Older than this village, older than me. It doesn't matter now - what matters is I'm out. She presses a worn, leather-bound book into your hands. It's warmer than it should be.",
+	"This Spell Book has outlived three owners before me. It chooses who it works for - and right now, it's chosen you. Don't waste that.",
+	"I won't. I'll learn everything it can teach me.",
+	"You'll need more than pages against what's coming. The forest's already stirring - I can feel it. So I'm giving you what's left of my strength.",
+	"I'm giving you Goblins. Rough around the edges, but they bleed for the people who freed me. They'll bleed for you too, now.",
+	"Then whatever's out there... it's going to have a fight on its hands.",
+	"Good. Hold onto that. There's a portal - it'll take you somewhere safe to catch your breath. Go now, while the curse's grip is still broken.",
+	"Then let's not waste time and get in!"
 };
 
 //Proximity calculation
@@ -189,7 +194,7 @@ void renderCutscene(){
 	iShowBMP(0, 0, "images/saving_placeblur.bmp");
 
 	if (heroPortraitID > 0){
-		iShowImage(610, 100, 160, 260, heroPortraitID);
+		iShowImage(610, 80, 160, 260, heroPortraitID);
 	}
 
 	if (witchPortraitID > 0){
@@ -205,7 +210,7 @@ void renderCutscene(){
 	iSetColor(15, 15, 25);
 	iFilledRectangle(boxX, boxY, boxWidth, boxHeight);
 
-	if (currentDialogueIndex % 2 == 0) {
+	if (strcmp(dialogueSpeakers[currentDialogueIndex], "Witch:") == 0) {
 		iSetColor(255, 215, 0);   //Witch: gold outline
 	}
 	else {
@@ -220,7 +225,7 @@ void renderCutscene(){
 	// Wrapped Dialogue Text
 	iTextWrapped(boxX + 20, boxY + 110, dialogues[currentDialogueIndex], 350, 20);
 
-	// Prompt to advance dialogue
+
 	iSetColor(180, 180, 180);
 	iText(boxX + 170, boxY + 15, "Press [SPACE] to continue...", GLUT_BITMAP_HELVETICA_12);
 
@@ -240,7 +245,7 @@ void renderCutscene(){
 	if (currentDialogueIndex == 2 || currentDialogueIndex == 3){
 		// Render Spell Book Image above box
 		if (spellBookID > 0){
-			iShowImage(itemX, itemY, 65, 70, spellBookID);
+			iShowImage(itemX, itemY, 75, 80, spellBookID);
 		}
 
 		// Text Tag Beside Book
@@ -252,11 +257,11 @@ void renderCutscene(){
 		iSetColor(255, 255, 255);
 		iText(tagX + 15, tagY + 14, "Spell Book Unlocked", GLUT_BITMAP_HELVETICA_12);
 	}
-	else if (currentDialogueIndex == 4 || currentDialogueIndex == 5){
+	else if (currentDialogueIndex == 6 || currentDialogueIndex == 7){
 		// Render Goblin Image above box
 		if (goblinHelperID > 0)
 		{
-			iShowImage(itemX, itemY, imgSize, imgSize, goblinHelperID);
+			iShowImage(10, 30, 200 ,200, goblinHelperID);
 		}
 
 		// Text Tag Beside Goblin
@@ -503,7 +508,7 @@ int main(){
 	heroPortraitID = iLoadImage("images/alchemist_portrait.png");
 	witchPortraitID = iLoadImage("images/right_looking_witch.png");
 	spellBookID = iLoadImage("images/witch_book.png");
-	goblinHelperID = iLoadImage("images/goblin.png");
+	goblinHelperID = iLoadImage("images/goblin_trio.png");
 
 	// Timer loop
 	iSetTimer(16, fixedUpdate);
