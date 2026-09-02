@@ -20,16 +20,22 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GameConfig.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Player.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ResourceSystem.hpp">
+    <ClInclude Include="Menu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="iGraphics.h">
+    <ClInclude Include="HomeBaseConfig.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Fighters.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GatherSystem.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HomeBase.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

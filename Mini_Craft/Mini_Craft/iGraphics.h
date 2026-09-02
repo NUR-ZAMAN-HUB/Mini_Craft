@@ -6,8 +6,13 @@
 //
 //  Version: 4.0
 //
-
 #pragma once
+// NOTE: this #pragma once was missing, which is what caused the 100+ "already has a
+// body" errors in stb_image.h - iGraphics.h (and its STB_IMAGE_IMPLEMENTATION block)
+// was getting fully re-processed every time it was #included from more than one file
+// (iMain.cpp, Fighters.hpp, GatherSystem.hpp, HomeBase.hpp all include it), so every
+// stbi_* function got defined multiple times. #pragma once makes the compiler skip
+// the file after the first time it's included, regardless of how many places #include it.
 
 # include <stdio.h>
 # include <stdlib.h>
