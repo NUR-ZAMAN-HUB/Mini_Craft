@@ -92,3 +92,10 @@ same pattern (`Battle_Init/Draw/FixedUpdate/OnMouseDown`) was later used to add 
   `const_cast` where needed.
 - New art assets (button icons, arena backgrounds, enemy sprites) go in `Images/` and are
   added by hand after code wiring is in place.
+
+
+##credit
+
+MARIA AKTER-00725105101146
+MD NUR ZAMAN LAM-00725105101155
+ADRITA TASNEEM RAYA-00725105101161
