@@ -13,13 +13,10 @@
 #pragma once
 
 #include "iGraphics.h"
-#include "Menu.h"           // currentLevel - see RESOURCE_CAP_PER_LEVEL / getResourceCap() below
 #include "HomeBaseConfig.hpp"
 #include "Fighters.hpp"     // Fighter, distanceBetween()
 #include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>   // rand()/srand() - see updateRandomResourceBonus() below
-#include <time.h>     // time() - seeds rand() once
 
 enum ResourceType { RES_STONE = 0, RES_WOOD = 1, RES_IRON = 2, RES_WATER = 3 };
 
@@ -49,26 +46,17 @@ static const NodeConfig NODE_CFG[4] = {
 int g_inventory[4] = { 0, 0, 0, 0 };
 unsigned int g_gatherRingTex = 0;   // spinning "in progress" icon, loaded in main()
 
-// Stone/Wood/Iron are capped at 100 per level (Water is unlimited - there's no
-// equivalent cap on it, since nothing asked for one). currentLevel starts at 1
-// (see iMain.cpp), so the starting cap is 100 and it rises by 100 each time the
-// player clears a "Save the Witch" map and steps through the portal.
-#define RESOURCE_CAP_PER_LEVEL 100
-inline int getResourceCap() { return RESOURCE_CAP_PER_LEVEL * currentLevel; }
+// Stone/Wood/Iron are capped at 500 each - every place that adds to
+// g_inventory[RES_STONE/RES_WOOD/RES_IRON] (node gathering below, passive
+// trickle, and inventory.hpp's addItem() for those 3 items) clamps through
+// this. Water is intentionally left uncapped - only Stone/Wood/Iron were
+// asked for.
+#define MAX_BASIC_RESOURCE 500
 
-// Adds "amount" to one resource, clamping Stone/Wood/Iron at getResourceCap()
-// (Water passes straight through uncapped). Both gather sources - the resource
-// nodes below and the random bonus - go through this instead of touching
-// g_inventory[] directly, so the cap can't be missed by either path.
-inline void addResource(ResourceType type, int amount)
+inline void clampBasicResource(ResourceType type)
 {
-	g_inventory[type] += amount;
-
-	if (type != RES_WATER)
-	{
-		int cap = getResourceCap();
-		if (g_inventory[type] > cap) g_inventory[type] = cap;
-	}
+	if (type == RES_WATER) return;   // Water has no cap
+	if (g_inventory[type] > MAX_BASIC_RESOURCE) g_inventory[type] = MAX_BASIC_RESOURCE;
 }
 
 // ---------------------------------------------------------------
@@ -123,7 +111,8 @@ inline void updateResourceNode(ResourceNode &node)
 			node.isBeingGathered = false;
 			node.available = false;
 			node.depletedAtTime = now;
-			addResource(node.type, 1);
+			g_inventory[node.type]++;
+			clampBasicResource(node.type);
 		}
 	}
 	else if (!node.available && now - node.depletedAtTime >= node.respawnTimeMs)
@@ -156,35 +145,48 @@ inline void drawResourceNode(ResourceNode &node)
 }
 
 // ---------------------------------------------------------------
-//  RANDOM RESOURCE BONUS (every 5 seconds, while in Home Base)
-//  Rolls a number 1-100 on a timer; which third it lands in decides
-//  which single resource gets +5 for free. Called once per tick from
-//  HomeBase_FixedUpdate() - see updateRandomResourceBonus() below.
+//  PASSIVE RESOURCE GAIN
+//  Stone/Wood/Iron trickle in on their own every 10 seconds, on top
+//  of whatever's gathered manually from nodes. Runs from iMain.cpp's
+//  fixedUpdate() while the player is in HOMEBASE *or* BATTLE (see the
+//  call site there), so it keeps ticking mid-fight - only reset via
+//  g_passiveResourceLastTick = 0, which nothing currently does, so it
+//  never restarts. Water is intentionally left out; only Stone/Wood/Iron
+//  were asked for.
 // ---------------------------------------------------------------
-#define RANDOM_BONUS_INTERVAL_MS 5000   // 5 seconds
-#define RANDOM_BONUS_AMOUNT      5
+#define PASSIVE_RESOURCE_INTERVAL_MS 10000   // 10 seconds
+#define PASSIVE_RESOURCE_MIN 1                // random amount is 1-5 inclusive
+#define PASSIVE_RESOURCE_MAX 5
 
-inline void updateRandomResourceBonus()
+unsigned long g_passiveResourceLastTick = 0;
+
+inline void updatePassiveResourceGain()
 {
-	// Seeds rand() once. Battle.hpp seeds it too (its own fights need randomness
-	// before Home Base necessarily runs a tick) - reseeding twice with time(NULL)
-	// is harmless, each guarded by its own "only once" flag.
-	static bool seeded = false;
-	if (!seeded) { seeded = true; srand((unsigned int)time(NULL)); }
-
-	static unsigned long lastBonusTime = 0;
 	unsigned long now = GetTickCount();
-	if (lastBonusTime == 0) lastBonusTime = now;   // first call just starts the 5s timer
-	if (now - lastBonusTime < RANDOM_BONUS_INTERVAL_MS) return;
-	lastBonusTime = now;
 
-	int roll = rand() % 100 + 1;   // 1..100
-	ResourceType bonusType;
-	if (roll <= 33)       bonusType = RES_STONE;   // 1-33   -> Stone
-	else if (roll <= 66)  bonusType = RES_WOOD;    // 34-66  -> Wood
-	else                  bonusType = RES_IRON;    // 67-100 -> Iron
+	// First call ever: just start the clock, don't award anything yet.
+	if (g_passiveResourceLastTick == 0)
+	{
+		g_passiveResourceLastTick = now;
+		return;
+	}
 
-	addResource(bonusType, RANDOM_BONUS_AMOUNT);
+	if (now - g_passiveResourceLastTick >= PASSIVE_RESOURCE_INTERVAL_MS)
+	{
+		g_passiveResourceLastTick = now;
+
+		int gain = PASSIVE_RESOURCE_MIN + rand() % (PASSIVE_RESOURCE_MAX - PASSIVE_RESOURCE_MIN + 1);
+		g_inventory[RES_STONE] += gain;
+		clampBasicResource(RES_STONE);
+
+		gain = PASSIVE_RESOURCE_MIN + rand() % (PASSIVE_RESOURCE_MAX - PASSIVE_RESOURCE_MIN + 1);
+		g_inventory[RES_WOOD] += gain;
+		clampBasicResource(RES_WOOD);
+
+		gain = PASSIVE_RESOURCE_MIN + rand() % (PASSIVE_RESOURCE_MAX - PASSIVE_RESOURCE_MIN + 1);
+		g_inventory[RES_IRON] += gain;
+		clampBasicResource(RES_IRON);
+	}
 }
 
 // ---------------------------------------------------------------

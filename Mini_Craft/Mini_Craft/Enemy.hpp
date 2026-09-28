@@ -52,14 +52,19 @@
 // Skeleton: faster, fragile melee grunt
 #define SKELETON_MAX_HEALTH   60
 #define SKELETON_MOVE_SPEED   2.0f
-#define SKELETON_DAMAGE       4  
+#define SKELETON_DAMAGE       10
 #define SKELETON_MELEE_RANGE  50.0f
 
-// Monster (boss): much higher HP/damage than either grunt
-#define MONSTER_MAX_HEALTH   500
-#define MONSTER_MOVE_SPEED   2.5f
-#define MONSTER_DAMAGE       30
-#define MONSTER_MELEE_RANGE  80.0f
+// Monster (boss): much higher HP/damage than either grunt.
+// MAX_HEALTH bumped up from 500 - at 500 HP a Guardian could kill it in as
+// little as ~10s of continuous melee (ATTACK_COOLDOWN_MS=500 -> 2 hits/sec
+// * 25 dmg = 50 dmg/sec), well under the 20s fire-breath interval below, so
+// the super move often never got a chance to trigger. 900 gives it enough
+// room to reliably survive to its first fire breath under normal play.
+#define MONSTER_MAX_HEALTH   900
+#define MONSTER_MOVE_SPEED   3.0f   // was 3.5f - slowed down a little
+#define MONSTER_DAMAGE       45
+#define MONSTER_MELEE_RANGE  50.0f
 
 // Monster enrage: once HP drops to/below this % of max, it speeds up
 // and hits harder - gives the boss fight a second phase
@@ -82,6 +87,10 @@
 //  ATTACK
 // ---------------------------------------------------------------
 #define ENEMY_ATTACK_COOLDOWN_MS 800   // stops the attack from re-triggering every tick
+
+// Boss-only override: the Dragon's basic (scratch) attack fires once every
+// 5 seconds instead of the grunt cooldown above - see tryEnemyAttack().
+#define BOSS_ATTACK_COOLDOWN_MS 5000
 
 // ---------------------------------------------------------------
 //  ENUMS
@@ -131,7 +140,9 @@ struct EnemyStats { const char* prefix; int hp, dmg; float speed, range; int wal
 static const EnemyStats ENEMY_STATS[3] = {
 	{ "zombie",   ZOMBIE_MAX_HEALTH,   ZOMBIE_DAMAGE,   ZOMBIE_MOVE_SPEED,   ZOMBIE_MELEE_RANGE,   ENEMY_WALK_MAX_FRAMES, ENEMY_ATTACK_MAX_FRAMES, false },
 	{ "skeleton", SKELETON_MAX_HEALTH, SKELETON_DAMAGE, SKELETON_MOVE_SPEED, SKELETON_MELEE_RANGE, ENEMY_WALK_MAX_FRAMES, ENEMY_ATTACK_MAX_FRAMES, false },
-	{ "monster",  MONSTER_MAX_HEALTH,  MONSTER_DAMAGE,  MONSTER_MOVE_SPEED,  MONSTER_MELEE_RANGE,  ENEMY_WALK_MAX_FRAMES, ENEMY_ATTACK_MAX_FRAMES, true  },
+	// Boss art is the Dragon: 2 walk frames/side, 3 scratch(attack) frames/side -
+	// see loadDragonSpritesOnce()/applyDragonSprites() in Battle.hpp.
+	{ "dragon",   MONSTER_MAX_HEALTH,  MONSTER_DAMAGE,  MONSTER_MOVE_SPEED,  MONSTER_MELEE_RANGE,  2,                      3,                        true  },
 };
 
 // =====================================================================
@@ -173,7 +184,7 @@ inline const char* enemyTypeName(EnemyType t)
 {
 	if (t == ENEMY_ZOMBIE)   return "Zombie";
 	if (t == ENEMY_SKELETON) return "Skeleton";
-	return "Monster";
+	return "Dragon";
 }
 
 // =====================================================================
@@ -268,7 +279,8 @@ inline bool tryEnemyAttack(Enemy &e, float targetX, float targetY)
 	if (e.isDead) return false;
 
 	unsigned long now = GetTickCount();
-	if (now - e.lastAttackTriggerTime < ENEMY_ATTACK_COOLDOWN_MS) return false;
+	unsigned long cooldown = e.isBoss ? BOSS_ATTACK_COOLDOWN_MS : ENEMY_ATTACK_COOLDOWN_MS;
+	if (now - e.lastAttackTriggerTime < cooldown) return false;
 	if (enemyDistanceTo(e.x, e.y, targetX, targetY) > e.meleeRange) return false;
 
 	e.lastAttackTriggerTime = now;
@@ -335,7 +347,11 @@ inline void drawEnemy(Enemy &e)
 	else if (e.animState == ENEMY_ANIM_ATTACK) tex = e.attackTex[e.facing][e.frameIndex];
 	else                                        tex = e.idleTex[e.facing];
 
-	iShowImage((int)(e.x - ENEMY_DRAW_W / 2), (int)(e.y - ENEMY_DRAW_H / 2), ENEMY_DRAW_W, ENEMY_DRAW_H, tex);
+	// Bosses (e.g. the Dragon) draw at double size, same scale-up the
+	// placeholder box already used for isBoss enemies.
+	int w = e.isBoss ? ENEMY_DRAW_W * 2 : ENEMY_DRAW_W;
+	int h = e.isBoss ? ENEMY_DRAW_H * 2 : ENEMY_DRAW_H;
+	iShowImage((int)(e.x - w / 2), (int)(e.y - h / 2), w, h, tex);
 }
 
 // Simple HP bar overlay - mainly meant for the Monster boss fight, but

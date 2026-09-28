@@ -93,8 +93,19 @@ GameState pendingState = GameState::MENU;
 int loadingTimer = 0;
 const int LOADING_DURATION = 60;   // ~1 second (fixedUpdate ticks roughly every 16ms)
 
+// Which state we were leaving when EnterLoading() was called - lets the LOADING->HOMEBASE
+// handoff below tell "coming back from the Battle arena" (resume the paused night timer)
+// apart from "fresh arrival at Home Base" (start the night timer from scratch).
+GameState g_loadingFromState = GameState::MENU;
+
+// Autosave while in Home Base/Battle (see SaveGame.hpp) - safety net for closing the window
+// with the X button / Alt+F4, which never goes through the Exit button's SaveGame() call.
+const unsigned long AUTOSAVE_INTERVAL_MS = 3000;
+unsigned long g_lastAutoSaveTick = 0;
+
 void EnterLoading(GameState target)
 {
+	g_loadingFromState = currentState;   // remember what we're leaving BEFORE it flips to LOADING
 	currentState = GameState::LOADING;
 	pendingState = target;
 	loadingTimer = LOADING_DURATION;
@@ -129,7 +140,6 @@ int heroPortraitID = -1;
 int witchPortraitID = -1;
 int spellBookID = -1;
 int goblinHelperID = -1;
-int keebHintImg = -1;   // WASD/arrow-keys hint, shown top-right during GAMEPLAY only
 
 int witchUnconsciousID = -1;
 int witchStandingID = -1;
@@ -338,17 +348,12 @@ void renderCutscene()
 {
 	iShowBMP(0, 0, const_cast<char*>("Images/saving_placeblur.bmp"));
 
-	// Portraits enlarged 50% from their original 160x260 (240x390 now). Witch
-	// keeps her original top-left corner (30,100) since there's room to grow
-	// there; hero is nudged from x=610 to x=560 so the wider image still fits
-	// on the 800-wide screen instead of clipping off the right edge - vertical
-	// position (y=80) is unchanged for both.
 	if (heroPortraitID > 0) {
-		iShowImage(560, 80, 240, 390, heroPortraitID);
+		iShowImage(610, 80, 160, 260, heroPortraitID);
 	}
 
 	if (witchPortraitID > 0) {
-		iShowImage(30, 100, 240, 390, witchPortraitID);
+		iShowImage(30, 100, 160, 260, witchPortraitID);
 	}
 
 	int boxX = 200;
@@ -389,7 +394,7 @@ void renderCutscene()
 		const_cast<char*>("SKIP"), GLUT_BITMAP_HELVETICA_18);
 
 	// Item unlocked msg
-	int imgSize = 150;   // was 100 - bumped 50% along with the images below, so the text tag stays lined up beside them
+	int imgSize = 100;
 
 	// Position image directly above the main box
 	int itemX = boxX + 30;
@@ -402,9 +407,9 @@ void renderCutscene()
 	int tagH = 40;
 
 	if (currentDialogueIndex == 2 || currentDialogueIndex == 3) {
-		// Render Spell Book Image above box (75x80 -> 113x120, +50%)
+		// Render Spell Book Image above box
 		if (spellBookID > 0) {
-			iShowImage(itemX, itemY, 113, 120, spellBookID);
+			iShowImage(itemX, itemY, 75, 80, spellBookID);
 		}
 
 		// Text Tag Beside Book
@@ -417,9 +422,9 @@ void renderCutscene()
 		iText(tagX + 15, tagY + 14, const_cast<char*>("Spell Book Unlocked"), GLUT_BITMAP_HELVETICA_12);
 	}
 	else if (currentDialogueIndex == 6 || currentDialogueIndex == 7) {
-		// Render Goblin Image above box (200x200 -> 300x300, +50%)
+		// Render Goblin Image above box
 		if (goblinHelperID > 0) {
-			iShowImage(10, 30, 300, 300, goblinHelperID);
+			iShowImage(10, 30, 200, 200, goblinHelperID);
 		}
 
 		// Text Tag Beside Goblin
@@ -501,12 +506,18 @@ void DrawGameplay()
 		iText(portalX - 30, portalY + 152, const_cast<char*>("PRESS 'ENTER' TO GET IN"), GLUT_BITMAP_HELVETICA_12);
 	}
 
-	// WASD/arrow-keys movement hint - top-right corner, only while actually
-	// playing this map. Native art is 1936x544 (~3.56:1); scaled down here to
-	// a small HUD icon but kept big enough to actually read at a glance.
-	if (keebHintImg > 0) {
-		iShowImage(550, 400, 210, 200, keebHintImg);
-	}
+	// Movement controls hint - top-right corner, GAMEPLAY only.
+	// Same dark-box + white-border style as the "PRESS 'X' TO SAVE WITCH" prompts.
+	const int hintX = 585, hintY = 530, hintW = 200, hintH = 55;
+
+	iSetColor(15, 15, 25);
+	iFilledRectangle(hintX, hintY, hintW, hintH);
+
+	iSetColor(255, 255, 255);
+	iRectangle(hintX, hintY, hintW, hintH);
+
+	iText(hintX + 12, hintY + 35, const_cast<char*>("MOVEMENT"), GLUT_BITMAP_HELVETICA_12);
+	iText(hintX + 12, hintY + 15, const_cast<char*>("W A S D  or  Arrow Keys"), GLUT_BITMAP_HELVETICA_12);
 }
 
 // ---------------------------------------------------------------------------
@@ -638,7 +649,7 @@ void iDraw()
 		iShowImage(0, 0, 800, 600, backgroundImg1);
 	else if (currentState != GameState::LOADING && currentState != GameState::GAMEPLAY &&
 		currentState != GameState::CUTSCENE && currentState != GameState::HOMEBASE &&
-		currentState != GameState::BATTLE && currentState != GameState::POST_BATTLE_CUTSCENE)
+		currentState != GameState::BATTLE)
 		iShowImage(0, 0, 800, 600, backgroundImg2);
 
 	switch (currentState)
@@ -670,9 +681,6 @@ void iDraw()
 	case GameState::BATTLE:
 		Battle_Draw();
 		break;
-	case GameState::POST_BATTLE_CUTSCENE:
-		PostBattle_Draw();
-		break;
 	}
 }
 
@@ -694,26 +702,11 @@ void iMouse(int button, int state, int mx, int my)
 	{
 		if (IsInsideButton(startBtn, mx, my))
 		{
-			// A save file means a world is already in progress - jump straight back
-			// into it (Home Base, with the saved level/fights/resources/character)
-			// instead of going through CHARACTER_SELECT and the intro map again.
-			if (HasSaveFile() && LoadGame())
-			{
-				loadCharacterAssets();   // hero sprites for whichever character the save restored
-				HomeBase_Init();         // resets roster positions/health + resource nodes; re-applies
-				                          // activeFighterIndex from the characterNumber LoadGame() just set
-
-				// HomeBase_Init() just reset every fighter to full health - reapply the
-				// saved health on top of that (g_savedPlayerHealth, set by LoadGame()).
-				if (g_savedPlayerHealth >= 0)
-					roster[activeFighterIndex].currentHealth = g_savedPlayerHealth;
-
+			// A save exists -> resume straight into Home Base; otherwise start a fresh run.
+			if (g_hasSaveData)
 				EnterLoading(GameState::HOMEBASE);
-			}
 			else
-			{
 				currentState = GameState::CHARACTER_SELECT;
-			}
 		}
 		else if (IsInsideButton(levelBtn, mx, my))
 		{
@@ -725,6 +718,7 @@ void iMouse(int button, int state, int mx, int my)
 		}
 		else if (IsInsideButton(exitBtn, mx, my))
 		{
+			SaveGame();
 			exit(0);
 		}
 	}
@@ -769,6 +763,7 @@ void iMouse(int button, int state, int mx, int my)
 		if (IsInsideButton(resetLevelBtn, mx, my))
 		{
 			currentLevel = 1;   // reset always sends the player back to level 1
+			ResetSaveGame();    // also wipes savegame.txt + coins/resources/inventory
 		}
 		else if (IsInsideButton(backBtn, mx, my))
 		{
@@ -819,7 +814,7 @@ void iMouse(int button, int state, int mx, int my)
 
 	if (currentState == GameState::BATTLE && state == GLUT_DOWN)
 	{
-		Battle_OnMouseDown(button);
+		Battle_OnMouseDown(button, mx, my);
 	}
 
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && currentState == GameState::CUTSCENE)
@@ -830,13 +825,6 @@ void iMouse(int button, int state, int mx, int my)
 			currentState = GameState::GAMEPLAY;
 			currentDialogueIndex = 0;
 		}
-	}
-
-	// POST_BATTLE_CUTSCENE (skeleton taunt) - a click advances to the next line,
-	// same as SPACE (see fixedUpdate()); on the last line it hands off to Home Base.
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && currentState == GameState::POST_BATTLE_CUTSCENE)
-	{
-		PostBattle_Advance();
 	}
 }
 
@@ -857,7 +845,17 @@ void fixedUpdate()
 			if (pendingState == GameState::BATTLE)
 				Battle_Init();   // fresh enemy + reset positions each time BATTLE is entered
 			if (pendingState == GameState::HOMEBASE)
-				HomeBase_StartNightTimer();   // (re)start the 2-min "Night time in:" countdown
+			{
+				// Coming back from the arena: the night timer was paused the moment we
+				// left HOMEBASE (it only ticks inside HomeBase_FixedUpdate - see
+				// updateNightTimer() in HomeBase.hpp), so just resume it where it left
+				// off. Any other arrival at Home Base (fresh game, portal, loaded save)
+				// starts the countdown over from the full duration, same as before.
+				if (g_loadingFromState == GameState::BATTLE)
+					HomeBase_ResumeNightTimer();
+				else
+					HomeBase_StartNightTimer();
+			}
 		}
 		return;
 	}
@@ -885,23 +883,6 @@ void fixedUpdate()
 		return;
 	}
 
-	if (currentState == GameState::POST_BATTLE_CUTSCENE)
-	{
-		if (isKeyPressed(' '))
-		{
-			if (!spacePressedLastFrame)
-			{
-				PostBattle_Advance();
-				spacePressedLastFrame = true;
-			}
-		}
-		else
-		{
-			spacePressedLastFrame = false;
-		}
-		return;
-	}
-
 	if (currentState == GameState::GAMEPLAY)
 	{
 		isMoving = false;
@@ -914,11 +895,9 @@ void fixedUpdate()
 		if ((isKeyPressed('\r') || isKeyPressed('\n')) && isNearPortal && isWitchRescued)
 		{
 			// This map is cleared - bump the level counter and step through the portal
-			// into Home Base (the witch's "somewhere safe to catch your breath"). That's
-			// the start of the first world, so save right here (see HomeBase.hpp's
-			// SaveGame()) - Start on the main MENU can now resume straight into it.
+			// into Home Base (the witch's "somewhere safe to catch your breath").
 			currentLevel++;
-			SaveGame();
+			SaveGame();   // first arrival at Home Base - create/refresh the save
 			EnterLoading(GameState::HOMEBASE);
 			return;
 		}
@@ -988,9 +967,6 @@ void fixedUpdate()
 		bool wantsMenu = HomeBase_FixedUpdate();
 		if (wantsMenu)
 		{
-			// Capture whatever's changed since the last save (fights won so far this
-			// world, resources gathered, damage taken) before backing out to the menu -
-			// otherwise Start would resume from a stale mid-world snapshot.
 			SaveGame();
 			EnterLoading(GameState::MENU);
 		}
@@ -1000,35 +976,21 @@ void fixedUpdate()
 	{
 		bool wantsExit = Battle_FixedUpdate();
 		if (wantsExit)
-		{
-			if (battleOutcome == BATTLE_WON)
-			{
-				// One more fight toward this world's total - once FIGHTS_PER_WORLD (3)
-				// is reached, the world is cleared: bump the level and start counting
-				// the next world's fights from 0. That's a new world starting, so save
-				// right here too (see HomeBase.hpp's SaveGame()/HasSaveFile()).
-				g_worldFightsWon++;
-				if (g_worldFightsWon >= FIGHTS_PER_WORLD)
-				{
-					g_worldFightsWon = 0;
-					currentLevel++;
-					SaveGame();
-				}
-			}
+			EnterLoading(GameState::HOMEBASE);
+	}
 
-			// A non-boss win means the wave of 6 was just cleared - play the
-			// skeleton "reinforcements" taunt before heading back to Home Base.
-			// Boss wins and any loss skip straight to Home Base, same as before.
-			if (battleOutcome == BATTLE_WON && !battleIsBossFight)
-			{
-				currentState = GameState::POST_BATTLE_CUTSCENE;
-				PostBattle_Init();
-			}
-			else
-			{
-				EnterLoading(GameState::HOMEBASE);
-			}
+	if (currentState == GameState::HOMEBASE || currentState == GameState::BATTLE)
+	{
+		unsigned long now = GetTickCount();
+		if (now - g_lastAutoSaveTick >= AUTOSAVE_INTERVAL_MS)
+		{
+			SaveGame();
+			g_lastAutoSaveTick = now;
 		}
+
+		// Stone/Wood/Iron trickle in on their own, whether we're back at
+		// base or mid-battle in the arena (see GatherSystem.hpp).
+		updatePassiveResourceGain();
 	}
 }
 
@@ -1037,7 +999,7 @@ int main()
 {
 	// Background music (looping) + a game-over stinger, opened up front so both are
 	// ready to play the instant they're needed.
-	mciSendString("open \"Audios//background.mp3\" alias bgsong", NULL, 0, NULL);
+	mciSendString("open \"Audios//game_bgm.mp3\" alias bgsong", NULL, 0, NULL);
 	mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0, NULL);
 	mciSendString("play bgsong repeat", NULL, 0, NULL);
 
@@ -1094,10 +1056,12 @@ int main()
 	witchPortraitID = iLoadImage("Images//right_looking_witch.png");
 	spellBookID = iLoadImage("Images//witch_book.png");
 	goblinHelperID = iLoadImage("Images//goblin_trio.png");
-	keebHintImg = iLoadImage("Images//keeb_interact.png");
 
 	// Home Base scene (reached through the portal once the witch is rescued)
 	HomeBase_Init();
+
+	// Must come AFTER HomeBase_Init() (which zeroes the inventory) - restores any saved progress.
+	LoadGame();
 
 	iStart();
 	return 0;

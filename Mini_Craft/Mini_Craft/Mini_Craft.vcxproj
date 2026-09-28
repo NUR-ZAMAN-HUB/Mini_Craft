@@ -67,12 +67,17 @@
     <ClCompile Include="iMain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Battle.hpp" />
+    <ClInclude Include="Enemy.hpp" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="Player.hpp" />
     <ClInclude Include="HomeBaseConfig.hpp" />
     <ClInclude Include="Fighters.hpp" />
     <ClInclude Include="GatherSystem.hpp" />
     <ClInclude Include="HomeBase.hpp" />
+    <ClInclude Include="CraftingEngine.hpp" />
+    <ClInclude Include="inventory.hpp" />
+    <ClInclude Include="SaveGame.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

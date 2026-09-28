@@ -142,4 +142,4 @@
 //  0:00, IsNightTime() flips true for whatever "night" gameplay
 //  gets hooked onto it later.
 // ---------------------------------------------------------------
-#define NIGHT_TIMER_DURATION_MS (2 * 60 * 1000)   // 2 minutes
+#define NIGHT_TIMER_DURATION_MS (1 * 60 * 1000)   // 1 minutes

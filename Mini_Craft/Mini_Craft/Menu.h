@@ -8,9 +8,7 @@
 // through the portal, they arrive at Home Base - pick a fighter, spar, and gather resources.
 // BATTLE is reached from Home Base by clicking the Attack button - a 1v1 fight against an
 // enemy from Enemy.hpp (see Battle.hpp).
-// POST_BATTLE_CUTSCENE plays once a non-boss BATTLE is WON (all 6 waves cleared) - a short
-// skeleton-taunt scene before heading back to Home Base. See Battle.hpp's PostBattle_* functions.
-enum class GameState { MENU, CHARACTER_SELECT, LOADING, LEVEL_SELECT, SETTINGS, GAMEPLAY, CUTSCENE, HOMEBASE, BATTLE, POST_BATTLE_CUTSCENE };
+enum class GameState { MENU, CHARACTER_SELECT, LOADING, LEVEL_SELECT, SETTINGS, GAMEPLAY, CUTSCENE, HOMEBASE, BATTLE };
 
 // characterNumber uses these values - matches the order of CH[] in Player.hpp
 enum CharacterId { CHARACTER_ALCHEMIST = 0, CHARACTER_RANGER = 1, CHARACTER_GUARDIAN = 2 };
