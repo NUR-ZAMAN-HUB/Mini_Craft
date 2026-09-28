@@ -66,6 +66,14 @@
   <ItemGroup>
     <ClCompile Include="iMain.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Menu.h" />
+    <ClInclude Include="Player.hpp" />
+    <ClInclude Include="HomeBaseConfig.hpp" />
+    <ClInclude Include="Fighters.hpp" />
+    <ClInclude Include="GatherSystem.hpp" />
+    <ClInclude Include="HomeBase.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
