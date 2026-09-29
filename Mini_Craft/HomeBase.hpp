@@ -128,6 +128,16 @@ bool g_forceBossFight = false;
 // attackBtn, sitting just to its right.
 Button bossBtn = { attackBtn.x2 + 10, attackBtn.y1, attackBtn.x2 + 10 + 85, attackBtn.y2, "", 0 };
 
+// Boss button is ALWAYS drawn now. Clicking it while still locked (no Skeleton round won
+// yet) sets this to GetTickCount() so HomeBase_Draw() shows a "locked" message for a few
+// seconds. 0 = no message showing.
+unsigned long g_bossLockedMsgStart = 0;
+
+// Art shown on the Boss button while it's locked (Images/Boss_locked.png). Once a Skeleton
+// round is won, the normal bossBtn.imgId art (Boss_button.png) takes over. 0 = file missing.
+int g_bossLockedImgId = 0;
+const unsigned long BOSS_LOCKED_MSG_MS = 3000;
+
 // Set for one tick when the player clicks (iMouse() runs separately
 // from fixedUpdate()), then read + cleared inside HomeBase_FixedUpdate().
 bool g_homeLeftClickPending = false;
@@ -245,6 +255,28 @@ inline void drawSolidBlackPanel(double x, double y, double w, double h, double r
 	glBegin(GL_POLYGON);
 	for (int i = 0; i < n; i++) glVertex2d(px[i], py[i]);
 	glEnd();
+}
+
+// Semi-transparent hint shown on the left, telling the player ESC brings up
+// the controls panel (drawHomeControlsBox() below) - only shown while that
+// panel is hidden, so the two never overlap.
+inline void drawEscHintBox()
+{
+	const double boxX = 15, boxY = 90, boxW = 190, boxH = 34;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glColor4d(0.0, 0.0, 0.0, 0.55);   // black at ~55% opacity - "transparent box"
+	glBegin(GL_QUADS);
+		glVertex2d(boxX, boxY);
+		glVertex2d(boxX + boxW, boxY);
+		glVertex2d(boxX + boxW, boxY + boxH);
+		glVertex2d(boxX, boxY + boxH);
+	glEnd();
+	glDisable(GL_BLEND);
+
+	iSetColor(255, 255, 255);
+	iText(boxX + 14, boxY + boxH / 2 - 5, const_cast<char*>("Press ESC for controls"));
 }
 
 // Only drawn while showControls is true (toggled by ESC).
@@ -694,6 +726,7 @@ inline void HomeBase_Init()
 	// Images/Attack_button.png hasn't been added yet.
 	attackBtn.imgId = fileExists("Images/Attack_button.png") ? iLoadImage("Images/Attack_button.png") : 0;
 	bossBtn.imgId = fileExists("Images/Boss_button.png") ? iLoadImage("Images/Boss_button.png") : 0;
+	g_bossLockedImgId = fileExists("Images/Boss_locked.png") ? iLoadImage("Images/Boss_locked.png") : 0;
 
 	initInventory();          // zero out item quantities
 	loadInventoryTextures();  // item icons + the corner icon / panel art
@@ -780,12 +813,15 @@ inline void HomeBase_Draw()
 		iText(attackBtn.x1 + 14, attackBtn.y1 + 25, const_cast<char*>("ATTACK"));
 	}
 
-	// Boss button - only spawns once a Skeleton round has been won at least
-	// once (see g_hasWonSkeletonRound's comment above - Zombie no longer
-	// factors in, since Arena_1 never spawns one anymore).
-	if (g_hasWonSkeletonRound)
+	// Boss button - always visible. It only WORKS once a Skeleton round has been won
+	// (see g_hasWonSkeletonRound's comment above); until then it shows the padlock art
+	// (Boss_locked.png) and clicking it shows a message instead of starting the fight.
 	{
-		if (bossBtn.imgId != 0)
+		if (!g_hasWonSkeletonRound && g_bossLockedImgId != 0)
+		{
+			iShowImage(bossBtn.x1, bossBtn.y1, bossBtn.x2 - bossBtn.x1, bossBtn.y2 - bossBtn.y1, g_bossLockedImgId);
+		}
+		else if (bossBtn.imgId != 0)
 		{
 			DrawButton(bossBtn);
 		}
@@ -799,10 +835,48 @@ inline void HomeBase_Draw()
 			iRectangle(bossBtn.x1, bossBtn.y1, bossBtn.x2 - bossBtn.x1, bossBtn.y2 - bossBtn.y1);
 			iText(bossBtn.x1 + 20, bossBtn.y1 + 25, const_cast<char*>("BOSS"));
 		}
+
+		if (!g_hasWonSkeletonRound && g_bossLockedImgId == 0)
+		{
+			// Boss_locked.png missing - fall back to a LOCKED tag along the bottom edge
+			iSetColor(0, 0, 0);
+			iFilledRectangle(bossBtn.x1, bossBtn.y1, bossBtn.x2 - bossBtn.x1, 16);
+			iSetColor(255, 255, 255);
+			iText(bossBtn.x1 + 20, bossBtn.y1 + 4, const_cast<char*>("LOCKED"), GLUT_BITMAP_HELVETICA_10);
+		}
 	}
 
 	if (showControls)
 		drawHomeControlsBox();
+	else
+		drawEscHintBox();
+
+	// "Boss is locked" message - shown for BOSS_LOCKED_MSG_MS after clicking the locked button.
+	if (g_bossLockedMsgStart != 0)
+	{
+		if (GetTickCount() - g_bossLockedMsgStart > BOSS_LOCKED_MSG_MS)
+		{
+			g_bossLockedMsgStart = 0;
+		}
+		else
+		{
+			// Sized to the actual text (glutBitmapLength gives the exact pixel
+			// width for this font, same helper used by the hint text above) -
+			// a fixed width here was clipping this longer message onto the
+			// boss icon next to it.
+			const char* lockedMsg = "BOSS LOCKED - WIN A SKELETON BATTLE TO UNLOCK";
+			const int msgPad = 10;
+			const int msgX = 15, msgY = bossBtn.y2 + 12, msgH = 35;
+			int msgW = glutBitmapLength(GLUT_BITMAP_HELVETICA_12, (const unsigned char*)lockedMsg) + msgPad * 2;
+			if (msgX + msgW > HOME_AREA_W - 10) msgW = HOME_AREA_W - 10 - msgX;   // stay on screen
+
+			iSetColor(15, 15, 25);
+			iFilledRectangle(msgX, msgY, msgW, msgH);
+			iSetColor(255, 255, 255);
+			iRectangle(msgX, msgY, msgW, msgH);
+			iText(msgX + msgPad, msgY + 13, const_cast<char*>(lockedMsg), GLUT_BITMAP_HELVETICA_12);
+		}
+	}
 
 	// 3. Victory announcement when all 6 zombies are killed
 	if (g_baseSafeMessageActive)
@@ -904,15 +978,25 @@ inline void HomeBase_OnMouseDown(int button, int mx, int my)
 	if (button == GLUT_LEFT_BUTTON && IsInsideButton(attackBtn, mx, my))
 	{
 		g_homeLeftClickPending = false;   // this click opened Battle, not a gather-click
+		PlayBattleStartSfx();
 		EnterLoading(GameState::BATTLE);
 	}
 
-	// Boss button - only live once it's actually showing (Skeleton round won).
+	// Boss button clicked while still locked - just show the locked message.
+	if (button == GLUT_LEFT_BUTTON && !g_hasWonSkeletonRound
+		&& IsInsideButton(bossBtn, mx, my))
+	{
+		g_homeLeftClickPending = false;   // not a gather-click either
+		g_bossLockedMsgStart = GetTickCount();
+	}
+
+	// Boss button - only live once the Skeleton round has been won.
 	if (button == GLUT_LEFT_BUTTON && g_hasWonSkeletonRound
 		&& IsInsideButton(bossBtn, mx, my))
 	{
 		g_homeLeftClickPending = false;   // this click opened Battle, not a gather-click
 		g_forceBossFight = true;          // tells Battle_Init() to skip the level roll
+		PlayBattleStartSfx();
 		EnterLoading(GameState::BATTLE);
 	}
 }

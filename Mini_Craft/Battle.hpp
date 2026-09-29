@@ -95,6 +95,32 @@ int battleOutcomeTimer = 0;
 const int BATTLE_OUTCOME_DURATION = 90;   // ~1.5s (fixedUpdate ticks roughly every 16ms) - how
                                            // long "VICTORY!"/"DEFEATED..." shows before returning
 
+// ---------------------------------------------------------------
+//  SKELETON TAUNT SCENE
+//  Plays once "VICTORY!" finishes, but only after winning a *regular*
+//  (non-boss) Skeleton round - see Battle_FixedUpdate(). Three Skeletons
+//  stand facing the hero and taunt him, line by line, click to advance
+//  (see Battle_OnMouseDown()). The click that dismisses the last line
+//  is what actually ends the battle and sends the player back to Home
+//  Base. Boss fights and Zombie rounds skip this entirely.
+// ---------------------------------------------------------------
+bool  g_skeletonTauntActive = false;
+bool  g_skeletonTauntTrioReady = false;
+bool  g_skeletonTauntDone = false;   // just finished - tells Battle_FixedUpdate() to end the battle, once
+int   g_skeletonTauntLine = 0;
+Enemy g_skeletonTauntTrio[3];
+
+const char* SKELETON_TAUNT_LINES[] = {
+	"This is not over, hero.",
+	"You've only broken our bones - not our will!",
+	"We will call our BOSS...",
+	"...and you will wish you had fled tonight."
+};
+const int SKELETON_TAUNT_LINE_COUNT = 4;
+
+// setupSkeletonTauntTrio() (builds these three) is defined just below
+// applySkeletonSprites(), since it needs that function.
+
 // How long the hero keeps facing the enemy it just attacked. handleMovement()
 // (Fighters.hpp) unconditionally overwrites facing based on movement keys, so
 // without this the "look at the enemy" turn from an attack would get flipped
@@ -417,6 +443,24 @@ inline void applySkeletonSprites(Enemy &e)
 	}
 }
 
+// Builds the three taunting Skeletons once per scene (initEnemy() gives
+// them real stats/position/idle state, applySkeletonSprites() above points
+// them at the same shared walk/attack textures every other Skeleton uses -
+// see loadSkeletonSpritesOnce()). They default to facing left (initEnemy(),
+// Enemy.hpp), which is already toward the hero here.
+inline void setupSkeletonTauntTrio()
+{
+	if (g_skeletonTauntTrioReady) return;
+	g_skeletonTauntTrioReady = true;
+
+	float xs[3] = { 520.0f, 600.0f, 680.0f };
+	for (int i = 0; i < 3; i++)
+	{
+		initEnemy(g_skeletonTauntTrio[i], ENEMY_SKELETON, xs[i], BATTLE_PLAYER_START_Y);
+		applySkeletonSprites(g_skeletonTauntTrio[i]);
+	}
+}
+
 // ---------------------------------------------------------------
 //  DRAGON (BOSS) SPRITE LOADING
 //  Filenames as given: Dragon_walk_L1.png/_L2.png, Dragon_walk_R1.png/_R2.png
@@ -626,8 +670,21 @@ inline void Battle_Init()
 	spawnBattleWave(battleIsBossFight ? 1 : battleWave);   // boss fights are always solo, no waves
 
 	Fighter &player = roster[activeFighterIndex];
-	player.x = BATTLE_PLAYER_START_X;
-	player.y = BATTLE_PLAYER_START_Y;
+	if (battleIsBossFight)
+	{
+		// Boss fight: spawnBattleWave() above already randomized the boss's spot
+		// (randomSpawnX()/randomSpawnY()) - place the hero on the opposite side
+		// of the arena from it (same spawn range, mirrored) so the two aren't
+		// randomly dropped right on top of each other, but the fight still
+		// opens from a different spot each time.
+		player.x = (BATTLE_ENEMY_SPAWN_X_MIN + BATTLE_ENEMY_SPAWN_X_MAX) - battleEnemies[0].x;
+		player.y = (BATTLE_ENEMY_SPAWN_Y_MIN + BATTLE_ENEMY_SPAWN_Y_MAX) - battleEnemies[0].y;
+	}
+	else
+	{
+		player.x = BATTLE_PLAYER_START_X;
+		player.y = BATTLE_PLAYER_START_Y;
+	}
 	player.facing = FACE_RIGHT;
 	player.animState = ANIM_IDLE;
 	player.isAttacking = false;
@@ -700,18 +757,37 @@ inline bool Battle_FixedUpdate()
 	// Win/lose message is already showing - just count down, no more input matters.
 	if (battleOutcome != BATTLE_FIGHTING)
 	{
+		// Taunt scene is up - it's dismissed by clicks (Battle_OnMouseDown()),
+		// not by time, so the player can read it at their own pace.
+		if (g_skeletonTauntActive) return false;
+
+		// The click that dismissed the taunt's last line already fired last
+		// tick (Battle_OnMouseDown()) - end the battle now instead of falling
+		// through to the BATTLE_WON check below, which would just start the
+		// taunt scene over again since battleOutcome/battleEnemyType haven't
+		// changed.
+		if (g_skeletonTauntDone)
+		{
+			g_skeletonTauntDone = false;
+			return true;
+		}
+
 		battleOutcomeTimer--;
 		if (battleOutcomeTimer > 0) return false;
 
-		if (battleOutcome == BATTLE_LOST)
+		// "VICTORY!" just finished after a regular (non-boss) Skeleton round -
+		// hold on the taunt scene instead of returning to Home Base yet.
+		if (battleOutcome == BATTLE_WON && !battleIsBossFight && battleEnemyType == ENEMY_SKELETON)
 		{
-			// The reset already happened the instant HP hit 0 (below) - once
-			// the "Game End!" screen has been shown long enough, actually
-			// leave for the Menu instead of continuing into Home Base.
-			EnterLoading(GameState::MENU);
-			return false;   // we drove the transition ourselves this tick
+			setupSkeletonTauntTrio();
+			g_skeletonTauntActive = true;
+			g_skeletonTauntLine = 0;
+			return false;
 		}
-		return true;   // BATTLE_WON - iMain.cpp sends the player to HOMEBASE as before
+
+		// Win OR loss: iMain.cpp sends the player straight back to HOMEBASE, and the
+		// night timer resumes from where it was paused (see the LOADING handoff there).
+		return true;
 	}
 
 	// Potion select panel is open (right-click) - freeze the fight (player
@@ -803,20 +879,9 @@ inline bool Battle_FixedUpdate()
 		battleOutcomeTimer = BATTLE_OUTCOME_DURATION;
 		player.currentHealth = player.maxHealth;   // don't leave the fighter sitting at 0 HP
 
-		// Hero died -> the WHOLE game resets to its initial state, same as a
-		// brand-new install: wipes the save file and every global (level,
-		// coins, resources, inventory, AND character selection) back to
-		// defaults. The outcome-timer block above sends the player to the
-		// Menu once the "Game End!" screen has shown long enough.
-		ResetSaveGame();
-
-		// ResetSaveGame() doesn't touch these (they aren't part of the save
-		// file) - a Skeleton/Zombie round win flips one of these true (see
-		// the BATTLE_WON branch above), and it needs to go back to false on
-		// a full reset too, or the Boss button would stay unlocked after
-		// death even though everything else went back to a fresh game.
-		g_hasWonSkeletonRound = false;
-		g_hasWonZombieRound = false;
+		// Losing no longer wipes the game - progress (coins, inventory, level,
+		// character, boss unlock) is kept, and the outcome-timer block above
+		// sends the player back to Home Base just like a win does.
 	}
 
 	return false;
@@ -829,6 +894,23 @@ inline bool Battle_FixedUpdate()
 // from it (battlePotionMenuOnClick()).
 inline void Battle_OnMouseDown(int button, int mx, int my)
 {
+	if (g_skeletonTauntActive)
+	{
+		// Any click advances a line; the click past the last line dismisses
+		// the trio, and the next Battle_FixedUpdate() tick ends the battle.
+		if (button == GLUT_LEFT_BUTTON || button == GLUT_RIGHT_BUTTON)
+		{
+			g_skeletonTauntLine++;
+			if (g_skeletonTauntLine >= SKELETON_TAUNT_LINE_COUNT)
+			{
+				g_skeletonTauntActive = false;
+				g_skeletonTauntTrioReady = false;   // fresh trio next time this scene plays
+				g_skeletonTauntDone = true;         // tell Battle_FixedUpdate() to end the battle
+			}
+		}
+		return;
+	}
+
 	if (button == GLUT_RIGHT_BUTTON)
 	{
 		g_battlePotionMenuOpen = !g_battlePotionMenuOpen;
@@ -908,6 +990,38 @@ inline void drawDragonBossHealthBar(Enemy &dragon)
 	iText((int)(barX + barW / 2 - 26), (int)(barY + barH + 6), (char*)"DRAGON");
 }
 
+// Three Skeletons standing in front of the hero with a speech bubble over
+// their heads, cycling through SKELETON_TAUNT_LINES[] - see
+// g_skeletonTauntActive's comment above for how the scene starts/ends.
+inline void drawSkeletonTauntScene()
+{
+	for (int i = 0; i < 3; i++)
+		drawEnemy(g_skeletonTauntTrio[i]);
+
+	// Bubble width is sized to the current line, not a fixed guess - a fixed
+	// box was clipping the longer lines. iText()'s default font here is
+	// GLUT_BITMAP_8_BY_13 (iGraphics.h), which is 8px wide per character.
+	const char* line = SKELETON_TAUNT_LINES[g_skeletonTauntLine];
+	const double padding = 20;
+	double bubbleW = strlen(line) * 8.0 + padding * 2;
+	const double bubbleH = 70;
+
+	double bubbleX = g_skeletonTauntTrio[1].x - bubbleW / 2;
+	if (bubbleX < 10) bubbleX = 10;                                   // don't run off the left edge
+	if (bubbleX + bubbleW > HOME_AREA_W - 10) bubbleX = HOME_AREA_W - 10 - bubbleW;   // or the right
+
+	const double bubbleY = g_skeletonTauntTrio[1].y + ENEMY_DRAW_H / 2 + 30;
+
+	iSetColor(255, 255, 255);
+	iFilledRectangle((int)bubbleX, (int)bubbleY, (int)bubbleW, (int)bubbleH);
+	iSetColor(0, 0, 0);
+	iRectangle((int)bubbleX, (int)bubbleY, (int)bubbleW, (int)bubbleH);
+	iText((int)(bubbleX + padding), (int)(bubbleY + bubbleH - 28), const_cast<char*>(line));
+
+	iSetColor(110, 110, 110);
+	iText((int)(bubbleX + padding), (int)(bubbleY + 10), const_cast<char*>("(click to continue)"));
+}
+
 inline void Battle_Draw()
 {
 	// "Arena_1.png" for a regular wave fight, "Arena_2.png" for any boss
@@ -949,16 +1063,15 @@ inline void Battle_Draw()
 
 	if (battleOutcome == BATTLE_LOST)
 	{
-		// Screen goes dark on death - a solid black overlay over the whole
-		// battle canvas, with "Game End!" shown on top of it.
-		iSetColor(0, 0, 0);
-		iFilledRectangle(0, 0, HOME_AREA_W, HOME_AREA_H);
 		iSetColor(255, 255, 255);
-		iText(330, 300, const_cast<char*>("Game End!"), GLUT_BITMAP_TIMES_ROMAN_24);
+		iText(340, 300, const_cast<char*>("DEFEATED!"), GLUT_BITMAP_TIMES_ROMAN_24);
 	}
-	else if (battleOutcome == BATTLE_WON)
+	else if (battleOutcome == BATTLE_WON && !g_skeletonTauntActive)
 	{
 		iSetColor(255, 255, 255);
 		iText(340, 300, const_cast<char*>("VICTORY!"), GLUT_BITMAP_TIMES_ROMAN_24);
 	}
+
+	if (g_skeletonTauntActive)
+		drawSkeletonTauntScene();
 }

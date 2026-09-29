@@ -61,11 +61,9 @@ unsigned int musicOnImg;
 unsigned int musicOffImg;
 Button musicToggleBtn = { 700, 30, 750, 80, "", 0 };   // imgId is set every frame in DrawSettings() based on audioOn
 
-// Sound on/off toggle - sits directly beside the music toggle. There's no
-// separate sound-effects system in the project yet (the only other audio
-// asset, Audios/gameover.mp3, is opened in main() but nothing ever plays
-// it), so soundOn doesn't gate anything real yet - it's wired exactly like
-// audioOn so it's ready the moment there's something to mute.
+// Sound on/off toggle - sits directly beside the music toggle. It now gates the
+// sound effects (click.mp3 / battle_start.mp3 - see PlayClickSfx()/PlayBattleStartSfx()),
+// while the music toggle above still controls the background music.
 bool soundOn = true;   // starts ON, same as music
 unsigned int soundOnImg;
 unsigned int soundOffImg;
@@ -112,6 +110,24 @@ void EnterLoading(GameState target)
 }
 
 // ---------------------------------------------------------------------------
+// Sound effects - both are opened once in main() (aliases "clicksfx" and
+// "battlesfx") and gated by the Sound toggle in Settings (soundOn).
+// "play <alias> from 0" restarts the clip, so rapid clicks re-trigger it.
+// ---------------------------------------------------------------------------
+void PlayClickSfx()
+{
+	if (!soundOn) return;
+	mciSendString("play clicksfx from 0", NULL, 0, NULL);
+}
+
+void PlayBattleStartSfx()
+{
+	if (!soundOn) return;
+	mciSendString("stop clicksfx", NULL, 0, NULL);   // the generic click already fired for this same click
+	mciSendString("play battlesfx from 0", NULL, 0, NULL);
+}
+
+// ---------------------------------------------------------------------------
 // Gameplay state ("Save the Witch" map)
 // ---------------------------------------------------------------------------
 
@@ -140,7 +156,6 @@ int heroPortraitID = -1;
 int witchPortraitID = -1;
 int spellBookID = -1;
 int goblinHelperID = -1;
-int keebHintImg = -1;   // WASD/arrow-keys hint, shown top-right during GAMEPLAY only
 
 int witchUnconsciousID = -1;
 int witchStandingID = -1;
@@ -154,6 +169,11 @@ int witchHeight = 110;
 //Witch proximity
 bool isNearWitch = false;
 bool isWitchRescued = false;
+
+// Movement controls hint on the GAMEPLAY (Save the Witch) screen - hidden by
+// default, toggled by ESC, same pattern as Home Base's controls panel.
+bool showGameplayControls = false;
+bool g_gameplayEscKeyWasDown = false;
 float currentDistance = 0.0f;
 float proximityThreshold = 100.0f;
 
@@ -507,11 +527,44 @@ void DrawGameplay()
 		iText(portalX - 30, portalY + 152, const_cast<char*>("PRESS 'ENTER' TO GET IN"), GLUT_BITMAP_HELVETICA_12);
 	}
 
-	// WASD/arrow-keys movement hint - top-right corner, only while actually
-	// playing this map. Native art is 1936x544 (~3.56:1); scaled down here to
-	// a small HUD icon but kept big enough to actually read at a glance.
-	if (keebHintImg > 0) {
-		iShowImage(550, 400, 210, 200, keebHintImg);
+	// Movement controls hint - top-right corner, GAMEPLAY only. Hidden by
+	// default; pressing ESC (see FixedUpdate()) swaps in the real box below.
+	if (showGameplayControls)
+	{
+		const int hintX = 585, hintY = 530, hintW = 200, hintH = 55;
+
+		iSetColor(15, 15, 25);
+		iFilledRectangle(hintX, hintY, hintW, hintH);
+
+		iSetColor(255, 255, 255);
+		iRectangle(hintX, hintY, hintW, hintH);
+
+		iText(hintX + 12, hintY + 35, const_cast<char*>("MOVEMENT"), GLUT_BITMAP_HELVETICA_12);
+		iText(hintX + 12, hintY + 15, const_cast<char*>("W A S D  or  Arrow Keys"), GLUT_BITMAP_HELVETICA_12);
+	}
+	else
+	{
+		// Semi-transparent - same "press ESC" treatment as Home Base's hint
+		// box, sized to the text via glutBitmapLength() so it can't clip.
+		const char* escMsg = "Press ESC to see controls";
+		const int pad = 10;
+		int hintW = glutBitmapLength(GLUT_BITMAP_HELVETICA_12, (const unsigned char*)escMsg) + pad * 2;
+		const int hintH = 30;
+		const int hintX = 785 - hintW, hintY = 530;   // right-aligned to where the full box ends (585+200)
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glColor4d(0.0, 0.0, 0.0, 0.55);
+		glBegin(GL_QUADS);
+			glVertex2d(hintX, hintY);
+			glVertex2d(hintX + hintW, hintY);
+			glVertex2d(hintX + hintW, hintY + hintH);
+			glVertex2d(hintX, hintY + hintH);
+		glEnd();
+		glDisable(GL_BLEND);
+
+		iSetColor(255, 255, 255);
+		iText(hintX + pad, hintY + 10, const_cast<char*>(escMsg), GLUT_BITMAP_HELVETICA_12);
 	}
 }
 
@@ -609,14 +662,42 @@ void DrawLevelSelect()
 	DrawButton(backBtn);
 }
 
+// Draws a line of text horizontally centered inside the box spanning [boxX, boxX + boxW]
+static void DrawCenteredText(double boxX, double boxW, double y, const char* text, void* font)
+{
+	double textW = glutBitmapLength(font, (const unsigned char*)text);
+	iText(boxX + (boxW - textW) / 2.0, y, const_cast<char*>(text), font);
+}
+
+// CREDITS box - same pale-yellow as the menu buttons, black text and outline
+static void DrawCredits()
+{
+	const double boxX = 200, boxY = 140, boxW = 400, boxH = 300;
+
+	iSetColor(255, 249, 163);
+	iFilledRectangle(boxX, boxY, boxW, boxH);
+	iSetColor(0, 0, 0);
+	iRectangle(boxX, boxY, boxW, boxH);
+	iRectangle(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
+
+	DrawCenteredText(boxX, boxW, 398, "CREDITS", GLUT_BITMAP_TIMES_ROMAN_24);
+
+	// Thin divider under the heading
+	iLine(boxX + 40, 385, boxX + boxW - 40, 385);
+
+	DrawCenteredText(boxX, boxW, 340, "MARIA AKTER", GLUT_BITMAP_HELVETICA_18);
+	DrawCenteredText(boxX, boxW, 316, "ID- 00725105101146", GLUT_BITMAP_HELVETICA_18);
+
+	DrawCenteredText(boxX, boxW, 270, "NUR ZAMAN LAM", GLUT_BITMAP_HELVETICA_18);
+	DrawCenteredText(boxX, boxW, 246, "ID- 00725105101155", GLUT_BITMAP_HELVETICA_18);
+
+	DrawCenteredText(boxX, boxW, 200, "ADRITA TASNEEM RAYA", GLUT_BITMAP_HELVETICA_18);
+	DrawCenteredText(boxX, boxW, 176, "ID- 00725105101161", GLUT_BITMAP_HELVETICA_18);
+}
+
 void DrawSettings()
 {
-	iShowImage(285, 415, 230, 34, difficultyImg);
-
-	// Showcase only - highlights whichever difficulty is currently selected
-	DrawButton(easyBtn, difficulty == 0);
-	DrawButton(mediumBtn, difficulty == 1);
-	DrawButton(hardBtn, difficulty == 2);
+	DrawCredits();
 
 	DrawButton(backBtn);
 
@@ -627,7 +708,7 @@ void DrawSettings()
 	DrawButton(musicToggleBtn);
 
 	// Sound on/off toggle - sits beside the music toggle, same pattern.
-	// See the comment on soundOn above for why it doesn't control anything yet.
+	// soundOn mutes/unmutes the click and battle-start sound effects (see PlayClickSfx()).
 	soundToggleBtn.imgId = soundOn ? soundOnImg : soundOffImg;
 	DrawButton(soundToggleBtn);
 }
@@ -692,6 +773,10 @@ void iPassiveMouseMove(int mx, int my)
 void iMouse(int button, int state, int mx, int my)
 {
 	std::cout << mx << " " << my << " ";
+
+	// Click sound on every mouse press (any button, any screen).
+	if (state == GLUT_DOWN)
+		PlayClickSfx();
 
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && currentState == GameState::MENU)
 	{
@@ -767,19 +852,7 @@ void iMouse(int button, int state, int mx, int my)
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && currentState == GameState::SETTINGS)
 	{
-		if (IsInsideButton(easyBtn, mx, my))
-		{
-			difficulty = 0;
-		}
-		else if (IsInsideButton(mediumBtn, mx, my))
-		{
-			difficulty = 1;
-		}
-		else if (IsInsideButton(hardBtn, mx, my))
-		{
-			difficulty = 2;
-		}
-		else if (IsInsideButton(backBtn, mx, my))
+		if (IsInsideButton(backBtn, mx, my))
 		{
 			currentState = GameState::MENU;
 		}
@@ -790,15 +863,21 @@ void iMouse(int button, int state, int mx, int my)
 			// "bgsong" (opened once in main() - see the mciSendString calls there).
 			audioOn = !audioOn;
 			if (audioOn)
-				mciSendString("play bgsong repeat", NULL, 0, NULL);
+				mciSendString("setaudio bgsong volume to 1000", NULL, 0, NULL);
 			else
-				mciSendString("stop bgsong", NULL, 0, NULL);
+				mciSendString("setaudio bgsong volume to 0", NULL, 0, NULL);
 		}
 		else if (IsInsideButton(soundToggleBtn, mx, my))
 		{
-			// See the comment on soundOn's declaration - toggles and redraws,
-			// nothing to actually mute yet.
+			// Toggles the sound effects (click / battle start) - see PlayClickSfx().
 			soundOn = !soundOn;
+			if (!soundOn)
+			{
+				// PlayClickSfx() already fired at the top of iMouse() (soundOn was still true
+				// then) - cut it, plus any battle sting, so turning sound OFF is fully silent.
+				mciSendString("stop clicksfx", NULL, 0, NULL);
+				mciSendString("stop battlesfx", NULL, 0, NULL);
+			}
 		}
 	}
 
@@ -883,6 +962,12 @@ void fixedUpdate()
 		isMoving = false;
 		// Movement speed scaled directly from the confirmed character's stats in Player.hpp
 		int moveSpeed = (int)(CH[characterNumber].moveSpeed * 0.016f);
+
+		// ESC toggles the movement-controls hint (see DrawGameplay()). Edge-detected
+		// via g_gameplayEscKeyWasDown so holding ESC down doesn't flicker it every tick.
+		bool escDown = (isKeyPressed(27) != 0);
+		if (escDown && !g_gameplayEscKeyWasDown) showGameplayControls = !showGameplayControls;
+		g_gameplayEscKeyWasDown = escDown;
 
 		isNearWitch = checkProximityToWitch();
 		isNearPortal = checkProximityToPortal();
@@ -996,6 +1081,8 @@ int main()
 	// ready to play the instant they're needed.
 	mciSendString("open \"Audios//game_bgm.mp3\" alias bgsong", NULL, 0, NULL);
 	mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0, NULL);
+	mciSendString("open \"Audios//click.mp3\" alias clicksfx", NULL, 0, NULL);
+	mciSendString("open \"Audios//battle_start.mp3\" alias battlesfx", NULL, 0, NULL);
 	mciSendString("play bgsong repeat", NULL, 0, NULL);
 
 	iInitialize(800, 600, "Mini Craft");
@@ -1024,16 +1111,12 @@ int main()
 	settingsBtn.imgId = iLoadImage("Buttons//settings_button.png");
 	exitBtn.imgId = iLoadImage("Buttons//exit_button.png");
 	backBtn.imgId = iLoadImage("Buttons//Back_button.png");
-	easyBtn.imgId = iLoadImage("Buttons//easy_button.png");
-	mediumBtn.imgId = iLoadImage("Buttons//medium_button.png");
-	hardBtn.imgId = iLoadImage("Buttons//hard_button.png");
 	nextCharBtn.imgId = iLoadImage("Buttons//next_button.png");
 	confirmCharBtn.imgId = iLoadImage("Buttons//select_button.png");
 
 	// LEVEL_SELECT / SETTINGS label art
 	currentLevelImg = iLoadImage("Buttons//current_level_button.png");
 	resetWarningImg = iLoadImage("Buttons//Reset_level_warning.png");
-	difficultyImg = iLoadImage("Buttons//difficulty_button.png");
 	resetLevelBtn.imgId = iLoadImage("Buttons//reset_level_button.png");
 
 	// Music on/off toggle
@@ -1051,7 +1134,6 @@ int main()
 	witchPortraitID = iLoadImage("Images//right_looking_witch.png");
 	spellBookID = iLoadImage("Images//witch_book.png");
 	goblinHelperID = iLoadImage("Images//goblin_trio.png");
-	keebHintImg = iLoadImage("Images//keeb_interact.png");
 
 	// Home Base scene (reached through the portal once the witch is rescued)
 	HomeBase_Init();

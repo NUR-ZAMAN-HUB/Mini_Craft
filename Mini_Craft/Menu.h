@@ -63,4 +63,8 @@ void DrawSettings();
 // here up front, same as the Draw* functions above, makes that legal.
 void EnterLoading(GameState target);
 
+// Sound effects (defined in iMain.cpp). Declared here so HomeBase.hpp can play the
+// battle-start sound when the Attack / Boss buttons are clicked.
+void PlayBattleStartSfx();
+
 #endif

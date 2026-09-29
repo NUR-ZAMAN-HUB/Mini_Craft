@@ -62,7 +62,7 @@
 // the super move often never got a chance to trigger. 900 gives it enough
 // room to reliably survive to its first fire breath under normal play.
 #define MONSTER_MAX_HEALTH   900
-#define MONSTER_MOVE_SPEED   3.0f   // was 3.5f - slowed down a little
+#define MONSTER_MOVE_SPEED   2.4f   // was 3.0f (before that, 3.5f) - nerfed again, still faster than Skeleton (2.0f)
 #define MONSTER_DAMAGE       45
 #define MONSTER_MELEE_RANGE  50.0f
 
