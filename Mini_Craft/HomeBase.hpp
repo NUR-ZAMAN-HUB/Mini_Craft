@@ -25,6 +25,7 @@
 #include "GatherSystem.hpp"
 #include "inventory.hpp"    // drawInventoryUI() - Home Base corner icon + ITEM_DB/INVENTORY
 #include "CraftingEngine.hpp" // drawCraftingMenu()/craftingMenuOnClick() - the crafting book UI
+#include "PotionSystem.hpp"   // hotkeys 1-4: Health / Movement / Power / Reinforcement potions (shared with Battle)
 #include "ArmorEngine.hpp"   // drawArmorMenu()/armorMenuOnClick() - the Armor icon's display-only panel
 #include <stdio.h>          // fopen() - see fileExists() below
 
@@ -282,20 +283,29 @@ inline void drawEscHintBox()
 // Only drawn while showControls is true (toggled by ESC).
 inline void drawHomeControlsBox()
 {
-	const double boxX = 15, boxY = 90, boxW = 250, boxH = 165;   // moved up from y=15 so it clears the Attack button
+	const double boxX = 15, boxY = 90, boxW = 250, boxH = 261;   // moved up from y=15 so it clears the Attack button
 	drawSolidBlackPanel(boxX, boxY, boxW, boxH, 12.0);
 
+	// Index 0 = title, 1-6 = movement/combat controls, 7 = potions sub-heading,
+	// 8-11 = potion hotkeys (same keys as POTION_HOTKEYS in PotionSystem.hpp:
+	// 1 Health, 2 Movement, 3 Power, 4 Reinforcement).
 	const char* lines[] = {
 		"CONTROLS", "Move    : WASD / Arrows", "Attack  : Space / R-Click", "Shield  : E",
-		"Dash    : Shift + D", "Gather  : Left-Click", "Menu    : M"
+		"Dash    : Shift + D", "Gather  : Left-Click", "Menu    : M",
+		"POTIONS (press to use)",
+		"1  : Health Potion", "2  : Movement Potion", "3  : Power Potion", "4  : Reinforcement Potion"
 	};
+	const int lineCount = 12;
 
 	double textX = boxX + 15, lineY = boxY + boxH - 24;
 	iSetColor(255, 255, 255);
-	for (int i = 0; i < 7; i++)
+	for (int i = 0; i < lineCount; i++)
 	{
 		iText(textX, lineY, (char*)lines[i]);
-		lineY -= (i == 0) ? 22.0 : 18.0;   // extra gap right after the "CONTROLS" title
+		if (i == 0)      lineY -= 22.0;   // extra gap right after the "CONTROLS" title
+		else if (i == 6) lineY -= 26.0;   // extra gap before the "POTIONS" sub-heading
+		else if (i == 7) lineY -= 22.0;   // and after it
+		else             lineY -= 18.0;
 	}
 }
 
@@ -708,6 +718,8 @@ inline void HomeBase_Init()
 	else
 		activeFighterIndex = CHAR_GUARDIAN;
 
+	Potion_Reset(roster[activeFighterIndex]);   // no potion buffs on a fresh start
+
 	initAllResourceNodes(homeResourceNodes);
 
 	stoneIconID = iLoadImage("Images/Stone.jpg");
@@ -897,6 +909,7 @@ inline void HomeBase_Draw()
 	drawCraftingMenu();  // book + task box, only while isCraftingMenuOpen is true
 	drawArmorMenu();     // armor list, only while isArmorMenuOpen is true
 	drawCraftPopup();    // "+1" popup - only while a craft just happened
+	Potion_DrawHUD();    // active-potion icons + "<Potion> Potion activated" banner
 }
 
 inline void HomeBase_OnMouseDown(int button, int mx, int my)
@@ -1135,6 +1148,7 @@ inline bool HomeBase_FixedUpdate()
 	bool down = isKeyPressed('s') || isSpecialKeyPressed(GLUT_KEY_DOWN);
 	bool left = isKeyPressed('a') || isSpecialKeyPressed(GLUT_KEY_LEFT);
 	bool right = isKeyPressed('d') || isSpecialKeyPressed(GLUT_KEY_RIGHT);
+	Potion_HotkeysUpdate(active);   // keys 1-4 (also syncs speed/damage buffs) - see PotionSystem.hpp
 	handleMovement(active, up, down, left, right);
 
 	// Zombie defense update (movement, attacks, wave progression)
@@ -1148,7 +1162,7 @@ inline bool HomeBase_FixedUpdate()
 
 			if (tryEnemyAttack(g_homeZombies[i], active.x, active.y))
 			{
-				applyDamageToFighter(active, g_homeZombies[i].damage);
+				applyDamageToFighter(active, Potion_AdjustedDamage(g_homeZombies[i].damage));   // Reinforcement Potion halves it
 			}
 
 			updateEnemy(g_homeZombies[i]);

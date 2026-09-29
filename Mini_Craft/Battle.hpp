@@ -141,43 +141,18 @@ inline float randomSpawnX() { return (float)(BATTLE_ENEMY_SPAWN_X_MIN + rand() %
 inline float randomSpawnY() { return (float)(BATTLE_ENEMY_SPAWN_Y_MIN + rand() % (BATTLE_ENEMY_SPAWN_Y_MAX - BATTLE_ENEMY_SPAWN_Y_MIN + 1)); }
 
 // ---------------------------------------------------------------
-//  POTION HOTKEYS  -  1 = Health, 2 = Power, 3 = Movement, 4 = Reinforcement
-//  (same left-to-right order as ITEM_HEALTH_POTION..ITEM_REINFORCEMENT_POTION
-//  in inventory.hpp's ItemID enum, so "ITEM_HEALTH_POTION + slot" just works).
-//
-//  Pressing the key consumes one of that potion from INVENTORY (inventory.hpp)
-//  and turns its effect on for POTION_BUFF_DURATION_MS. While active, its
-//  icon (the same ITEM_DB[...].iconTex art already used for that potion
-//  elsewhere) is drawn in a small row directly under the Stone/Iron/Wood/
-//  Water "material column" (drawHomeResourceHUD() in HomeBase.hpp) - see
-//  drawBattlePotionIcons()/Battle_Draw() below. That row is only ever drawn
-//  from Battle_Draw(), so the icon exists on screen only while a battle is
-//  in progress; it's gone the instant the screen isn't the battle screen,
-//  and Battle_Init() below also clears every potion's active flag so a
-//  buff from a previous fight never carries an icon into the next one.
+//  POTION HOTKEYS  -  1 = Health, 2 = Movement, 3 = Power, 4 = Reinforcement
+//  The hotkey logic, timers, icons and the "<Potion> Potion activated" banner
+//  are shared with Home Base and live in PotionSystem.hpp (included through
+//  HomeBase.hpp): Potion_HotkeysUpdate() / Potion_Use() / Potion_DrawHUD().
+//  Battle_Init() clears them, so a buff never carries into the next fight.
 // ---------------------------------------------------------------
-#define POTION_SLOT_HEALTH         0
-#define POTION_SLOT_POWER          1
-#define POTION_SLOT_MOVEMENT       2
-#define POTION_SLOT_REINFORCEMENT  3
-#define POTION_SLOT_COUNT          4
-
-#define POTION_HEALTH_HEAL          30
-#define POTION_POWER_DAMAGE_MULT    1.75f
-#define POTION_MOVEMENT_SPEED_MULT  1.5f
-#define POTION_DEFENSE_MULT         2.0f
-#define POTION_BUFF_DURATION_MS     10000UL  // every potion's effect/icon runs for 10s, then clears
-#define POTION_HEALTH_ICON_MS       10000UL  // Health has no ongoing effect - just a "used" flash, same 10s window as the others
-
-bool          g_potionActive[POTION_SLOT_COUNT]    = { false, false, false, false };
-unsigned long g_potionExpiresAt[POTION_SLOT_COUNT] = { 0, 0, 0, 0 };
-bool          g_potionKeyWasDown[POTION_SLOT_COUNT] = { false, false, false, false };
 
 // ---------------------------------------------------------------
 //  POTION SELECT MENU  -  right-click opens a panel (pausing combat -
 //  see Battle_FixedUpdate()) listing every potion currently in stock;
 //  left-clicking one drinks it, same effect/duration as the '1'-'4'
-//  hotkeys above (both paths funnel through useBattlePotionSlot()
+//  hotkeys above (both paths funnel through Potion_Use()
 //  below). Reuses CraftingEngine.hpp's CRAFT_PANEL_* rect/background
 //  (already available here via the HomeBase.hpp include chain) so it
 //  looks consistent with the crafting book / inventory panel.
@@ -187,77 +162,6 @@ bool          g_potionKeyWasDown[POTION_SLOT_COUNT] = { false, false, false, fal
 //  attack is untouched (separate flag, separate handler).
 // ---------------------------------------------------------------
 bool g_battlePotionMenuOpen = false;
-
-// Un-buffed baselines, captured once per battle (Battle_Init()) so Power/
-// Movement always compute "base * multiplier" instead of compounding on
-// top of an already-buffed number if the same potion is used again mid-buff.
-float g_battlePlayerBaseDamage = 0;
-float g_battlePlayerBaseSpeed = 0;
-
-inline void resetBattlePotionState()
-{
-	for (int i = 0; i < POTION_SLOT_COUNT; i++)
-	{
-		g_potionActive[i] = false;
-		g_potionExpiresAt[i] = 0;
-		g_potionKeyWasDown[i] = false;
-	}
-}
-
-// Reinforcement Potion's damage reduction, applied wherever the player
-// takes a hit in battle (enemy melee, Dragon fire breath).
-inline int battlePotionAdjustedDamage(int rawDamage)
-{
-	if (!g_potionActive[POTION_SLOT_REINFORCEMENT]) return rawDamage;
-	int reduced = (int)(rawDamage / POTION_DEFENSE_MULT);
-	if (reduced < 0) reduced = 0;
-	return reduced;
-}
-
-// Spends one potion (slot 0..3, same order as ITEM_HEALTH_POTION..
-// ITEM_REINFORCEMENT_POTION) out of the inventory and turns its effect on
-// for POTION_BUFF_DURATION_MS (10s). Shared by both ways of using a potion
-// mid-fight: the '1'-'4' hotkeys below AND the right-click select menu
-// further down. Returns false (inventory untouched) if none are in stock.
-inline bool useBattlePotionSlot(int slot, Fighter &player)
-{
-	if (!removeItem(ITEM_HEALTH_POTION + slot, 1)) return false;
-
-	g_potionActive[slot] = true;
-	g_potionExpiresAt[slot] = GetTickCount() + POTION_BUFF_DURATION_MS;
-
-	if (slot == POTION_SLOT_HEALTH)
-	{
-		player.currentHealth += POTION_HEALTH_HEAL;
-		if (player.currentHealth > player.maxHealth) player.currentHealth = player.maxHealth;
-	}
-	return true;
-}
-
-// Call once per battle tick (Battle_FixedUpdate()): reads keys '1'-'4',
-// consumes/applies potions on the instant each key goes down (edge-
-// triggered, so holding the key doesn't chain-chug the whole stack), lets
-// timed buffs expire, and keeps player.damage/moveSpeed synced to the
-// currently active buffs.
-inline void updateBattlePotionHotkeys(Fighter &player)
-{
-	const int keys[POTION_SLOT_COUNT] = { '1', '2', '3', '4' };
-	unsigned long now = GetTickCount();
-
-	for (int i = 0; i < POTION_SLOT_COUNT; i++)
-	{
-		bool down = (isKeyPressed(keys[i]) != 0);
-		if (down && !g_potionKeyWasDown[i])
-			useBattlePotionSlot(i, player);
-		g_potionKeyWasDown[i] = down;
-
-		if (g_potionActive[i] && now >= g_potionExpiresAt[i])
-			g_potionActive[i] = false;
-	}
-
-	player.damage = (int)(g_battlePlayerBaseDamage * (g_potionActive[POTION_SLOT_POWER] ? POTION_POWER_DAMAGE_MULT : 1.0f));
-	player.moveSpeed = g_battlePlayerBaseSpeed * (g_potionActive[POTION_SLOT_MOVEMENT] ? POTION_MOVEMENT_SPEED_MULT : 1.0f);
-}
 
 // ---------------------------------------------------------------
 //  POTION SELECT MENU  -  drawing + click handling (opened/closed from
@@ -347,7 +251,7 @@ inline void drawBattlePotionSelectMenu()
 }
 
 // Call from Battle_OnMouseDown() (left-click) while g_battlePotionMenuOpen
-// is true. Clicking a slot drinks that potion (useBattlePotionSlot()) and
+// is true. Clicking a slot drinks that potion (Potion_Use()) and
 // closes the menu; clicking outside the panel just closes it, nothing spent.
 inline void battlePotionMenuOnClick(int mx, int my, Fighter &player)
 {
@@ -362,7 +266,7 @@ inline void battlePotionMenuOnClick(int mx, int my, Fighter &player)
 		getBattlePotionSelectSlotRect(i, count, x, y, w, h);
 		if (mx >= x && mx <= x + w && my >= y && my <= y + h)
 		{
-			useBattlePotionSlot(slots[i], player);
+			Potion_Use(slots[i], player);
 			g_battlePotionMenuOpen = false;   // combat resumes - see Battle_FixedUpdate()'s pause check
 			return;
 		}
@@ -372,30 +276,6 @@ inline void battlePotionMenuOnClick(int mx, int my, Fighter &player)
 		my >= CRAFT_PANEL_Y && my <= CRAFT_PANEL_Y + CRAFT_PANEL_H);
 	if (!insidePanel)
 		g_battlePotionMenuOpen = false;
-}
-
-// Small row of active-potion icons, positioned directly under where
-// drawHomeResourceHUD()'s Stone/Iron/Wood/Water column ends (same iconX,
-// 4 rows of rowGap=35 down from its top at HOME_AREA_H-65 - see
-// HomeBase.hpp). Only called from Battle_Draw(), so it (and the icons
-// on it) only ever appear during a battle.
-inline void drawBattlePotionIcons()
-{
-	const double iconSize = 25;
-	const double iconX = 730;                              // same column as drawHomeResourceHUD()
-	const double iconY = HOME_AREA_H - 65 - 4 * 35 - 15;    // just under the Water row
-	const double gap = iconSize + 8;
-
-	int slotItemID[POTION_SLOT_COUNT] = { ITEM_HEALTH_POTION, ITEM_POWER_POTION, ITEM_MOVEMENT_POTION, ITEM_REINFORCEMENT_POTION };
-
-	iSetColor(255, 255, 255);
-	int drawn = 0;
-	for (int i = 0; i < POTION_SLOT_COUNT; i++)
-	{
-		if (!g_potionActive[i]) continue;
-		iShowImage((int)(iconX + drawn * gap), (int)iconY, (int)iconSize, (int)iconSize, ITEM_DB[slotItemID[i]].iconTex);
-		drawn++;
-	}
 }
 
 // ---------------------------------------------------------------
@@ -597,7 +477,7 @@ inline void updateDragonFire(Enemy &dragon, Fighter &player)
 
 		if (enemyDistanceTo(g_dragonFire.x, g_dragonFire.y, player.x, player.y) <= DRAGON_FIRE_SIZE / 2 + 20)
 		{
-			applyDamageToFighter(player, battlePotionAdjustedDamage(DRAGON_FIRE_DAMAGE));
+			applyDamageToFighter(player, Potion_AdjustedDamage(DRAGON_FIRE_DAMAGE));
 			g_dragonFire.active = false;
 		}
 		else if (g_dragonFire.x < -50 || g_dragonFire.x > HOME_AREA_W + 50 ||
@@ -693,11 +573,9 @@ inline void Battle_Init()
 	battleOutcomeTimer = 0;
 	battleFaceLockUntil = 0;
 
-	// Fresh potion state every battle - see resetBattlePotionState()'s comment.
-	resetBattlePotionState();
+	// Fresh potion state every battle (also restores any Home Base buff's damage/speed).
+	Potion_Reset(player);
 	g_battlePotionMenuOpen = false;   // don't carry a still-open panel in from a previous battle
-	g_battlePlayerBaseDamage = (float)player.damage;
-	g_battlePlayerBaseSpeed = player.moveSpeed;
 }
 
 // ---------------------------------------------------------------
@@ -799,7 +677,7 @@ inline bool Battle_FixedUpdate()
 	if (g_battlePotionMenuOpen)
 		return false;
 
-	updateBattlePotionHotkeys(player);   // keys '1'-'4' - see the block above randomSpawnX()
+	Potion_HotkeysUpdate(player);   // keys 1-4 - see PotionSystem.hpp
 
 	bool up = isKeyPressed('w') || isSpecialKeyPressed(GLUT_KEY_UP);
 	bool down = isKeyPressed('s') || isSpecialKeyPressed(GLUT_KEY_DOWN);
@@ -838,7 +716,7 @@ inline bool Battle_FixedUpdate()
 			{
 				moveEnemyToward(e, player.x, player.y);
 				if (tryEnemyAttack(e, player.x, player.y))
-					applyDamageToFighter(player, battlePotionAdjustedDamage(e.damage));   // handles the Guardian-shield block too, Reinforcement Potion too
+					applyDamageToFighter(player, Potion_AdjustedDamage(e.damage));   // handles the Guardian-shield block too, Reinforcement Potion too
 			}
 		}
 		updateEnemy(e);
@@ -1050,8 +928,8 @@ inline void Battle_Draw()
 
 	drawHomeHealthBar();   // same left-side "just the number" HUD used in Home Base
 	drawCoinHUD();
-	drawBattlePotionIcons();   // active potions from the '1'-'4' hotkeys - battle-only, see its comment above
 	drawBattlePotionSelectMenu();   // right-click panel - only while g_battlePotionMenuOpen
+	Potion_DrawHUD();               // active-potion icons + "<Potion> Potion activated" banner
 
 	if (!battleIsBossFight && battleOutcome == BATTLE_FIGHTING)
 	{

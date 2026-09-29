@@ -689,7 +689,7 @@ static void DrawCredits()
 	DrawCenteredText(boxX, boxW, 316, "ID- 00725105101146", GLUT_BITMAP_HELVETICA_18);
 
 	DrawCenteredText(boxX, boxW, 270, "NUR ZAMAN LAM", GLUT_BITMAP_HELVETICA_18);
-	DrawCenteredText(boxX, boxW, 246, "ID- 00725105101155", GLUT_BITMAP_HELVETICA_18);
+	DrawCenteredText(boxX, boxW, 246, "ID- 0072510510155", GLUT_BITMAP_HELVETICA_18);
 
 	DrawCenteredText(boxX, boxW, 200, "ADRITA TASNEEM RAYA", GLUT_BITMAP_HELVETICA_18);
 	DrawCenteredText(boxX, boxW, 176, "ID- 00725105101161", GLUT_BITMAP_HELVETICA_18);

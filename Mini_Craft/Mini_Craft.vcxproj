@@ -75,6 +75,7 @@
     <ClInclude Include="Fighters.hpp" />
     <ClInclude Include="GatherSystem.hpp" />
     <ClInclude Include="HomeBase.hpp" />
+    <ClInclude Include="PotionSystem.hpp" />
     <ClInclude Include="CraftingEngine.hpp" />
     <ClInclude Include="inventory.hpp" />
     <ClInclude Include="SaveGame.hpp" />
