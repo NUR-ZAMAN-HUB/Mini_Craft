@@ -1,0 +1,17 @@
+﻿Build started 9/29/2026 1:49:54 PM.
+     1>Project "C:\Users\User\Downloads\Mini_Craft_NRC1\Mini_Craft\Mini_Craft\Mini_Craft.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt iMain.cpp
+         iMain.cpp
+     1>c:\users\user\downloads\mini_craft_nrc1\mini_craft\mini_craft\imain.cpp(248): warning C4101: 'buffer' : unreferenced local variable
+     1>c:\users\user\downloads\mini_craft_nrc1\mini_craft\mini_craft\imain.cpp(823): error C2664: 'unsigned int iLoadImage(char [])' : cannot convert argument 1 from 'const char *' to 'char []'
+                 Conversion loses qualifiers
+     1>c:\users\user\downloads\mini_craft_nrc1\mini_craft\mini_craft\imain.cpp(824): error C2664: 'unsigned int iLoadImage(char [])' : cannot convert argument 1 from 'const char *' to 'char []'
+                 Conversion loses qualifiers
+     1>c:\users\user\downloads\mini_craft_nrc1\mini_craft\mini_craft\imain.cpp(825): error C2664: 'unsigned int iLoadImage(char [])' : cannot convert argument 1 from 'const char *' to 'char []'
+                 Conversion loses qualifiers
+     1>Done Building Project "C:\Users\User\Downloads\Mini_Craft_NRC1\Mini_Craft\Mini_Craft\Mini_Craft.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:01.11
