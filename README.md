@@ -1,101 +1,73 @@
 # Mini Craft (C2)
 
-A 2D C++ game built with the **iGraphics/GLUT** framework in **Visual Studio 2013**.
+## Game Description
 
-## Building
+**Mini Craft (C2)** is a 2D C++ game project built using the **iGraphics/GLUT** framework in C++. The project features a multi-state game flow, including a story-driven rescue mission, a persistent Home Base hub for resource gathering and crafting, and wave-based combat encounters.
 
-Open `Mini_Craft/Mini_Craft.vcxproj` (or `Mini_Craft.sln`) in Visual Studio 2013 and build/run.
-No external dependencies beyond what's already vendored in `Mini_Craft/` (`iGraphics.h`,
-`glut.h`/`glut32.lib`, `OPENGL32.LIB`, `Glaux.lib`, `stb_image.h`, etc.).
+## Features
+- Three playable character classes (Guardian, Ranger, Alchemist) with unique abilities like shields and dashes.
+- Interactive Home Base hub featuring combat, resource gathering, and item crafting.
+- Resource gathering system (Stone, Wood, Iron, Water) with individual gather times and respawn timers.
+- Crafting system for potions (Movement, Power, Reinforcement, Health), Damage Scrolls, and Armor (Iron, Rusty, Steel).
+- Day/Night cycle with automatic zombie defense events triggered at night.
+- Wave-based enemy battles and Boss fights (e.g., Dragon with scratch attacks and fire-breath moves).
+- Automatic save/load system storing progress, resources, coins, and crafted inventory in `savegame.txt`.
+- Full mouse and keyboard controls for movement, interaction, combat, and menu navigation.
 
-## Game flow
+## Project Details
+IDE: Visual Studio 2013
 
-```
-MENU -> CHARACTER_SELECT -> LOADING -> GAMEPLAY -> (portal) -> HOMEBASE <-> BATTLE
-                                            |
-                                        CUTSCENE
-```
+Language: C, C++
 
-- **MENU**: Play, Level Select, Settings. Play resumes straight into Home Base if a save
-  exists (`g_hasSaveData`), otherwise starts a fresh Character Select run.
-- **CHARACTER_SELECT / LOADING**: pick a fighter card (Guardian / Ranger / Alchemist),
-  Confirm transitions through a loading screen.
-- **GAMEPLAY**: the "Save the Witch" map — a rescue objective with cutscene dialogue,
-  ending at a portal that sends the player to Home Base.
-- **HOMEBASE**: the persistent hub — combat, gathering, crafting, and the day/night cycle.
-- **BATTLE**: entered from Home Base's Attack button (or forced via the Boss button).
+Platform : Windows PC
 
-## Home Base
+Genre : 2D action adventure / survival sandbox
 
-Reached the first time by walking through the GAMEPLAY portal; every later Play resumes
-here directly.
+## How to Run the Project
 
-**Controls**
+Make sure you have the following installed:
+- **Visual Studio 2013**
+- **iGraphics / GLUT Library** (vendored inside the `Mini_Craft/` folder)
 
-| Action | Key |
-|---|---|
-| Move | `WASD` / arrow keys |
-| Attack | `Space` or right-click |
-| Guardian shield | `E` (4s active, 15s cooldown) |
-| Ranger dash | `Shift + D` |
-| Gather (Stone/Wood/Iron/Water) | left-click a resource node while standing close to it |
-| Return to main menu | `M` |
-| Toggle controls panel | `Esc` |
+Open the project in Visual Studio 2013
+- Open Visual Studio 2013.
+- Go to File → Open → Project/Solution.
+- Locate and select `Mini_Craft/Mini_Craft.vcxproj` (or `Mini_Craft.sln`) from the cloned repository.
+- Click Build → Build Solution
+- Run the program by clicking Debug → Start Without Debugging
 
-**Systems**
-- **Resource gathering** (`GatherSystem.hpp`): 4 node types, each with its own gather time
-  and respawn delay (e.g. Wood ~1.2s gather / 4s respawn, Iron ~3.5s gather / 7s respawn).
-  A HUD shows current Stone/Iron/Wood counts.
-- **Crafting** (`CraftingEngine.hpp`): the inventory icon opens a crafting book of potions
-  (Movement, Power, Reinforcement, Health) and a Damage Scroll; only ingredients you
-  actually hold are listed, and a Craft button spends them via `canCraft()`/`craftItem()`.
-- **Armor** (`ArmorEngine.hpp`): a second panel, same UI pattern, for Iron / Rusty / Steel
-  Armor.
-- **Buffs** (`PlayerBuffs.hpp`): what each crafted item does when consumed — the movement,
-  power, and reinforcement potions are timed buffs, the health potion heals over time, and
-  the damage scroll is a permanent stat boost.
-- **Day/night cycle**: a timer counts down to night; when it hits zero a "zombie defense"
-  mini-game/battle triggers at the base.
-- **Boss fights**: every 5th level auto-triggers a boss fight (`Arena_1.png`). After winning
-  one full Skeleton wave-round, a Boss button also appears next to Attack, letting the
-  player force a boss fight on demand (`Arena_2.png`). The current boss is a Dragon (walk
-  + scratch-attack sprites, with a fire-breath super move every ~10s).
-- **Save/load** (`SaveGame.hpp`): plain-text `savegame.txt` stores character, active
-  fighter, level, difficulty, coins, the 4 gathered-resource counts, and every crafted-item
-  quantity. Autosaves on reaching Home Base, on leaving to the menu, and every ~3s while
-  in Home Base. Hero health/position are *not* saved — Home Base always resets those to a
-  fresh spawn. The Reset Level button wipes the save and every related global back to a
-  brand-new game.
+## How to Play
 
-## Battle
+### **Controls**
+| Player / Action | Move Left / Up | Move Right / Down | Jump / Ability | Attack / Interacts | Block / Dash | Extra Action |
+|-------------|----------|-----------|-----------|-------|------|-------|
+| **Player (Keyboard)** | `A` / `W` | `D` / `S` | `E` (Guardian Shield) | `Space` | `Shift + D` (Ranger Dash) | `M` (Menu) / `Esc` (Controls) |
+| **Player (Mouse/Arrow)** | `←` (Left Arrow) | `→` (Right Arrow) | `↑` / `↓` Arrows | Right-Click (Attack) | Left-Click (Gather Resource) | — |
 
-A wave fight between the player's active Fighter and a growing row of enemies
-(`Enemy.hpp`): each battle starts at 1 enemy and adds one more per cleared wave, up to 6.
-Boss battles are always a single solo enemy with no wave scaling. On defeat (HP reaches 0)
-the whole save resets and the player is sent back to `MENU`.
+### **Game Rules**
 
-## Project history
+- **Progression**: Flow progresses from MENU → CHARACTER_SELECT → LOADING → GAMEPLAY ("Save the Witch") → HOMEBASE <-> BATTLE.
+- **Resource Gathering**: Stand near resource nodes and left-click to harvest Stone, Wood, Iron, or Water.
+- **Crafting & Buffs**: Use gathered items in the crafting book to make Potions and Armor for timed buffs, healing, or permanent stat boosts.
+- **Day/Night & Bosses**: Nightfall triggers automatic base defense. Boss fights trigger automatically every 5th level or on-demand via the Boss button after clearing waves.
+- **Defeat & Game Over**: If hero HP hits 0 in battle, the save file resets and the player is returned to the Main Menu.
 
-This build merges two originally-separate projects: the menu + "Save the Witch" map, and
-a Home Base combat/resource-gathering sandbox that used to have its own `main()`. Since a
-program can only have one `main()`/`iDraw()`/`iMouse()`/`fixedUpdate()`, the Home Base code
-was rewritten as plain functions (`HomeBase_Init/Draw/FixedUpdate/OnMouseDown`) that the
-shared `iMain.cpp` calls into whenever `currentState == GameState::HOMEBASE` — and the
-same pattern (`Battle_Init/Draw/FixedUpdate/OnMouseDown`) was later used to add the
-`BATTLE` state on top.
+## Project Contributors
 
-## Notes for future work
+1. MARIA AKTER (00725105101146)
+2. MD NUR ZAMAN LAM (00725105101155)
+3. ADRITA TASNEEM RAYA (00725105101161)
 
-- iGraphics has no `iKeyboard` callback — key state is polled with `isKeyPressed()` /
-  `isSpecialKeyPressed()` inside `fixedUpdate()`.
-- `iLoadImage()` expects a non-`const char*`; wrap `std::string::c_str()` calls in a
-  `const_cast` where needed.
-- New art assets (button icons, arena backgrounds, enemy sprites) go in `Images/` and are
-  added by hand after code wiring is in place.
+## Screenshots
 
+### **Menu**
+*(Not provided)*
 
-##credit
+### **Character**
+*(Not provided)*
 
-MARIA AKTER-00725105101146
-MD NUR ZAMAN LAM-00725105101155
-ADRITA TASNEEM RAYA-00725105101161
+## Youtube Link
+[CSE Project: Mini Craft (C2) Demo](https://www.youtube.com/)
+
+## Project Report
+[Project Report: Mini Craft (C2)](https://drive.google.com/)
