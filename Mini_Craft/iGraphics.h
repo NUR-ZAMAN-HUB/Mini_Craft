@@ -6,13 +6,6 @@
 //
 //  Version: 4.0
 //
-#pragma once
-// NOTE: this #pragma once was missing, which is what caused the 100+ "already has a
-// body" errors in stb_image.h - iGraphics.h (and its STB_IMAGE_IMPLEMENTATION block)
-// was getting fully re-processed every time it was #included from more than one file
-// (iMain.cpp, Fighters.hpp, GatherSystem.hpp, HomeBase.hpp all include it), so every
-// stbi_* function got defined multiple times. #pragma once makes the compiler skip
-// the file after the first time it's included, regardless of how many places #include it.
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -182,16 +175,6 @@ void iShowImage(int x, int y, int width, int height, unsigned int texture)
 
 	glEnable(GL_TEXTURE_2D);
 
-	// Alpha blending - needed so PNGs with transparent areas (rounded button
-	// corners, character sprites, etc.) actually show the background through
-	// those areas instead of whatever raw color happened to be baked into
-	// the fully-transparent pixels. Safe for opaque JPGs too: stb_image fills
-	// alpha=255 for formats with no alpha channel, so blending is a no-op for
-	// them - this only changes behavior for images that actually have
-	// transparency.
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -218,7 +201,6 @@ void iShowImage(int x, int y, int width, int height, unsigned int texture)
 
 	glEnd();
 
-	glDisable(GL_BLEND);
 	glDisable(GL_TEXTURE_2D);
 
 }
