@@ -1,8 +1,8 @@
-# Mini Craft (C2)
+# Mini Craft 
 
 ## Game Description
 
-**Mini Craft (C2)** is a 2D C++ game project built using the **iGraphics/GLUT** framework in C++. The project features a multi-state game flow, including a story-driven rescue mission, a persistent Home Base hub for resource gathering and crafting, and wave-based combat encounters.
+**Mini Craft** is a 2D C++ game project built using the **iGraphics/GLUT** framework in C++. The project features a multi-state game flow, including a story-driven rescue mission, a persistent Home Base hub for resource gathering and crafting, and wave-based combat encounters.
 
 ## Features
 - Three playable character classes (Guardian, Ranger, Alchemist) with unique abilities like shields and dashes.
@@ -61,10 +61,21 @@ Open the project in Visual Studio 2013
 ## Screenshots
 
 ### **Menu**
-*(Not provided)*
+![Main Menu](screenshots/menu.png)
 
 ### **Character**
-*(Not provided)*
+
+**The Guardian**
+
+![Character Selection - Guardian](screenshots/character_guardian.png)
+
+**The Ranger**
+
+![Character Selection - Ranger](screenshots/character_ranger.png)
+
+**The Alchemist**
+
+![Character Selection - Alchemist](screenshots/character_alchemist.png)
 
 ## Youtube Link
 [CSE Project: Mini Craft (C2) Demo](https://www.youtube.com/)
