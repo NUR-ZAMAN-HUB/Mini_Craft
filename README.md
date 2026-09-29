@@ -78,7 +78,9 @@ Open the project in Visual Studio 2013
 ![Character Selection - Alchemist](screenshots/character_alchemist.png)
 
 ## Youtube Link
-[CSE Project: Mini Craft (C2) Demo](https://www.youtube.com/)
+[![CSE Project: Mini Craft Demo](https://img.youtube.com/vi/rjS-Z2BA0fI/hqdefault.jpg)](https://www.youtube.com/watch?v=rjS-Z2BA0fI)
+
+[CSE Project: Mini Craft Demo](https://www.youtube.com/watch?v=rjS-Z2BA0fI)
 
 ## Project Report
-[Project Report: Mini Craft (C2)](https://drive.google.com/)
+[Project Report: Mini Craft](docs/C2_Group2_ProjectFinal_Report.pdf)
